@@ -11,7 +11,7 @@ import {
   MAX_BOX,
   type WordProgress,
 } from "../data/words";
-import { readActivity, logReview, computeStreak, type ActivityMap } from "../data/activity";
+import { readActivity, logReview, unlogReview, computeStreak, type ActivityMap } from "../data/activity";
 import { PIPER_VOICE_ID } from "../services/piper";
 import { probeCsvEditable, saveCsvToServer } from "../services/csvStore";
 import {
@@ -245,6 +245,17 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     [activity]
   );
 
+  // Deshacer de la sesión: restaura la caja/fecha previas de la palabra y
+  // descuenta el repaso del log de actividad (el efecto de persistencia
+  // re-escribe el progreso solo).
+  const undoReview = useCallback(
+    (id: string, prev: { box: number; due: string }, wasCorrect: boolean) => {
+      setAllWords((words) => words.map((w) => (w.id === id ? withProgress(w, prev) : w)));
+      setActivity(unlogReview(activity, wasCorrect));
+    },
+    [activity]
+  );
+
   // CRUD con write-through al CSV: primero se escribe el fichero, y solo si
   // el servidor confirma se actualiza la memoria (sin estados intermedios que
   // revertir). Al cambiar el término inglés, el id pasa a ser el nuevo front y
@@ -357,6 +368,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
         setSearchTerm,
         toggleLearned,
         reviewWord,
+        undoReview,
         canEdit,
         editWord,
         addWord,

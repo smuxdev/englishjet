@@ -44,6 +44,27 @@ export function logReview(activity: ActivityMap, correct: boolean): ActivityMap 
   return updated;
 }
 
+// Reverso de logReview, para el deshacer de la sesión. Clampa a 0: si el log
+// original cayó ayer (medianoche a mitad de sesión), no dejamos negativos.
+export function unlogReview(activity: ActivityMap, correct: boolean): ActivityMap {
+  const today = todayStr();
+  const day = activity[today];
+  if (!day) return activity;
+  const updated: ActivityMap = {
+    ...activity,
+    [today]: {
+      reviewed: Math.max(0, day.reviewed - 1),
+      correct: Math.max(0, day.correct - (correct ? 1 : 0)),
+    },
+  };
+  try {
+    localStorage.setItem(ACTIVITY_KEY, JSON.stringify(updated));
+  } catch (error) {
+    console.error("Error saving activity to localStorage:", error);
+  }
+  return updated;
+}
+
 // Días consecutivos con actividad, anclados en hoy — o en ayer si hoy aún no
 // se ha estudiado (la racha no se rompe a medianoche antes de la sesión).
 export function computeStreak(activity: ActivityMap): number {

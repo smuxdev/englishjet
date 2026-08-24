@@ -98,6 +98,20 @@ const MySentenceRow = ({ word }: { word: Word }) => {
   );
 };
 
+// Instantánea previa a cada respuesta, para poder volver a la tarjeta
+// anterior deshaciendo también la transición Leitner y el log de actividad.
+interface HistoryEntry {
+  queue: SessionCard[];
+  revealed: boolean;
+  typed: { input: string; verdict: Verdict } | null;
+  firstTry: number;
+  failedWords: Word[];
+  // null si la tarjeta ya había fallado en la sesión (no hubo transición)
+  review: { id: string; prev: { box: number; due: string }; correct: boolean } | null;
+}
+
+const HISTORY_LIMIT = 50;
+
 interface SessionState {
   queue: SessionCard[]; // queue[0] = tarjeta actual; falladas se reencolan al final
   direction: StudyDirection; // fijada al iniciar la sesión
@@ -107,6 +121,7 @@ interface SessionState {
   total: number;
   firstTry: number;
   failedWords: Word[];
+  history: HistoryEntry[];
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -140,6 +155,7 @@ function buildSession(
     total: deck.length,
     firstTry: 0,
     failedWords: [],
+    history: [],
   };
 }
 
@@ -147,6 +163,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
   const {
     dueWords,
     reviewWord,
+    undoReview,
     studyDirection,
     studyMode,
     sessionSize,
@@ -180,6 +197,18 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
     if (!card || !session.revealed || !canAnswer.current) return;
     canAnswer.current = false;
     setDraft("");
+    // Instantánea previa para el deshacer (caja/fecha desde el snapshot del
+    // deck: dentro de la sesión la palabra aún no había transicionado)
+    const entry: HistoryEntry = {
+      queue: session.queue,
+      revealed: session.revealed,
+      typed: session.typed,
+      firstTry: session.firstTry,
+      failedWords: session.failedWords,
+      review: card.failedOnce
+        ? null
+        : { id: card.word.id, prev: { box: card.word.box, due: card.word.due }, correct: knew },
+    };
     // Transición Leitner una sola vez por palabra y sesión: acierto a la
     // primera sube de caja; el primer fallo baja a caja 1. Las reencoladas
     // que luego aciertan ya transicionaron con su fallo.
@@ -187,6 +216,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
     setSession((s) => {
       const [head, ...rest] = s.queue;
       if (!head) return s;
+      const history = [...s.history.slice(-(HISTORY_LIMIT - 1)), entry];
       if (knew) {
         return {
           ...s,
@@ -194,6 +224,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
           revealed: false,
           typed: null,
           firstTry: head.failedOnce ? s.firstTry : s.firstTry + 1,
+          history,
         };
       }
       const alreadyFailed = s.failedWords.some((w) => w.id === head.word.id);
@@ -203,8 +234,28 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
         revealed: false,
         typed: null,
         failedWords: alreadyFailed ? s.failedWords : [...s.failedWords, head.word],
+        history,
       };
     });
+  };
+
+  // Volver a la tarjeta anterior: restaura la sesión al momento previo a la
+  // última respuesta (revelada, con su verdict) y revierte Leitner + actividad.
+  const goBack = () => {
+    const entry = session.history[session.history.length - 1];
+    if (!entry) return;
+    if (entry.review) undoReview(entry.review.id, entry.review.prev, entry.review.correct);
+    canAnswer.current = true; // se puede volver a responder
+    setDraft("");
+    setSession((s) => ({
+      ...s,
+      queue: entry.queue,
+      revealed: entry.revealed,
+      typed: entry.typed,
+      firstTry: entry.firstTry,
+      failedWords: entry.failedWords,
+      history: s.history.slice(0, -1),
+    }));
   };
 
   // «No lo sé»: revela la respuesta y cuenta como fallo (baja a caja 1 y se
@@ -247,20 +298,31 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
   const cardId = current?.word.id ?? null;
   useEffect(() => {
     if (!autoplay || !cardId || !current) return;
-    // En Contexto se pronuncia la frase completa al revelarse
+    // En Contexto y ES→EN se pronuncia la PALABRA al revelarse (la frase
+    // completa queda en su icono manual)
     const wantsBack = session.mode === "cloze" || session.direction === "es->en";
     if (wantsBack && !session.revealed) return;
     const key = `${cardId}:${wantsBack ? "back" : "front"}`;
     if (spokenRef.current === key) return;
     spokenRef.current = key;
-    const text =
-      session.mode === "cloze" && current.example ? current.example : current.word.englishTerm;
     if (isPiperVoice(selectedVoice)) {
-      void speakPiper(text);
+      void speakPiper(current.word.englishTerm);
+    } else {
+      speakNative(current.word.englishTerm, selectedVoice, voices);
+    }
+  }, [autoplay, cardId, session.revealed, session.direction, session.mode, current, selectedVoice, voices]);
+
+  // Altavoces manuales de la tarjeta Contexto (palabra y frase)
+  const [speaking, setSpeaking] = useState(false);
+  const ttsReady = voices.length > 0 || isPiperVoice(selectedVoice);
+  const speak = async (text: string) => {
+    if (isPiperVoice(selectedVoice)) {
+      setSpeaking(true);
+      try { await speakPiper(text); } finally { setSpeaking(false); }
     } else {
       speakNative(text, selectedVoice, voices);
     }
-  }, [autoplay, cardId, session.revealed, session.direction, session.mode, current, selectedVoice, voices]);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -334,6 +396,14 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
               Terminar
             </button>
           </div>
+          {session.history.length > 0 && (
+            <button
+              onClick={goBack}
+              className="relative mt-3 text-xs text-slate-400 hover:text-white transition-colors underline underline-offset-2"
+            >
+              ↩ Volver a la última tarjeta
+            </button>
+          )}
         </div>
       </section>
     );
@@ -355,6 +425,15 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
             Sesión de estudio <span className="text-slate-400 font-normal">· {session.mode === "cloze" ? "Contexto" : `${session.direction === "en->es" ? "EN → ES" : "ES → EN"}${session.mode === "typing" ? " · Escribir" : ""}`}</span>
           </span>
           <div className="flex items-center gap-3">
+            <button
+              onClick={goBack}
+              disabled={session.history.length === 0}
+              aria-label="Volver a la tarjeta anterior"
+              title="Volver a la tarjeta anterior (deshace la última respuesta)"
+              className="rounded-lg bg-slate-100 px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ↩ <span className="hidden sm:inline">Anterior</span>
+            </button>
             <button
               onClick={() => setAutoplay(!autoplay)}
               aria-pressed={autoplay}
@@ -411,18 +490,38 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
                   <span key={i}>{part.text}</span>
                 )
               )}
+              {session.revealed && current.example && (
+                <button
+                  onClick={() => void speak(current.example)}
+                  disabled={!ttsReady || speaking}
+                  className="inline-flex align-middle ml-2 p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-primary hover:text-white transition-all duration-200 disabled:opacity-30"
+                  aria-label="Escuchar la frase"
+                  title="Escuchar la frase"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                </button>
+              )}
             </p>
             <p className="mt-3 text-sm text-slate-500">
               Pista: <span className="font-semibold text-primary-dark">{current.word.spanishTranslation}</span>
             </p>
             {session.revealed && (
-              <div className="mt-6 pt-5 border-t border-slate-100">
+              <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
                 <p className="font-display text-xl font-bold text-ink">
                   {current.word.englishTerm}
                   {current.word.pronunciation && (
                     <span className="ml-2 text-sm font-mono font-normal text-slate-500">{current.word.pronunciation}</span>
                   )}
                 </p>
+                <button
+                  onClick={() => void speak(current.word.englishTerm)}
+                  disabled={!ttsReady || speaking}
+                  className="shrink-0 p-2 rounded-lg bg-slate-100 text-slate-500 hover:bg-primary hover:text-white transition-all duration-200 disabled:opacity-30"
+                  aria-label="Escuchar palabra"
+                  title="Escuchar la palabra"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                </button>
               </div>
             )}
           </div>

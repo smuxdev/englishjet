@@ -117,3 +117,7 @@ English Jet es una aplicación web para aprender vocabulario en inglés:
 ### 23. «No lo sé» en Escribir y Contexto (2026-08-24)
 - **Problema**: en los modos con input no había forma de rendirse; obligaba a teclear basura para ver la respuesta
 - **Solución**: botón «No lo sé» junto a «Comprobar» (`giveUp` en StudySession): revela con verdict fail e input vacío — panel «✗ No lo sabías — la respuesta era X» (sin el «escribiste» tachado). Cuenta como fallo (caja 1, reencolada). E2E: check 14 usa «No lo sé» en Contexto
+
+### 24. Volver a la tarjeta anterior (deshacer) (2026-08-24)
+- **Problema**: sin forma de volver atrás en la sesión (respuesta pulsada por error o tarjeta pasada demasiado rápido)
+- **Solución**: botón «↩ Anterior» en la cabecera de sesión (y «Volver a la última tarjeta» en el resumen). Deshacer real, no solo visual: `SessionState.history` (instantáneas pre-respuesta, cap 50) restaura cola/revelado/verdict/contadores, y `undoReview` en el provider revierte la transición Leitner (caja/fecha previas, guardadas desde el snapshot del deck) y descuenta el repaso del log (`unlogReview` en activity.ts, clamp a 0 por si cruzó medianoche). La tarjeta vuelve revelada y re-responder re-aplica la transición desde el estado restaurado. Respuestas de tarjetas ya falladas en la sesión (sin transición) solo restauran la sesión. E2E: check 3b (deshacer revierte progreso 1/10→0/10, clave Leitner y actividad; redo funciona)
