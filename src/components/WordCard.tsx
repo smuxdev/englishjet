@@ -2,6 +2,22 @@ import { useState } from "react";
 import type { Word } from "../types/vocabulary";
 import { useVocabularyStorage } from "../hooks/vocabularyContext";
 import { speakPiper, speakNative, isPiperVoice } from "../services/piper";
+import { MAX_BOX } from "../data/words";
+
+const BoxDots = ({ box }: { box: number }) => (
+  <span
+    className="inline-flex items-center gap-1"
+    title={box === 0 ? "Sin empezar" : `Caja ${box}/${MAX_BOX} (Leitner)`}
+    aria-label={box === 0 ? "Sin empezar" : `Caja ${box} de ${MAX_BOX}`}
+  >
+    {Array.from({ length: MAX_BOX }, (_, i) => (
+      <span
+        key={i}
+        className={`w-1.5 h-1.5 rounded-full ${i < box ? "bg-[#751200]" : "bg-slate-200"}`}
+      />
+    ))}
+  </span>
+);
 
 // El reveal se resetea al cambiar de palabra o dirección vía la key del
 // componente en MainLayout (`${word.id}-${studyDirection}`), no con efectos.
@@ -47,6 +63,9 @@ export const WordCard = ({ word }: { word: Word }) => {
                     {word.pronunciation} <span className="font-sans text-[10px] tracking-widest uppercase text-slate-400 ml-1">AmE</span>
                   </p>
                 )}
+                <div className="mt-1.5">
+                  <BoxDots box={word.box} />
+                </div>
               </div>
               <button
                 onClick={() => handleSpeak(word.englishTerm)}
@@ -82,9 +101,14 @@ export const WordCard = ({ word }: { word: Word }) => {
         ) : (
           <>
             <div className="flex items-center gap-2 mb-4">
-              <h3 className="text-lg font-bold text-slate-900 leading-tight flex-1 min-w-0">
-                {word.spanishTranslation}
-              </h3>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-slate-900 leading-tight">
+                  {word.spanishTranslation}
+                </h3>
+                <div className="mt-1.5">
+                  <BoxDots box={word.box} />
+                </div>
+              </div>
               <button
                 onClick={() => toggleLearned(word.id)}
                 className={`shrink-0 p-1.5 rounded-lg transition-all duration-200 ${isLearned ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-[#751200]"}`}

@@ -5,7 +5,8 @@ English Jet es una aplicación web para aprender vocabulario en inglés:
 - Palabras con traducción al español, ejemplo y pronunciación IPA (AmE)
 - Marcar como aprendida/pendiente, filtros y paginación (10/página)
 - Modo estudio: oculta la traducción hasta revelar, practicable EN→ES y ES→EN
-- Sesión de estudio: flashcards barajadas de pendientes (cap 20), «La sabía/Aún no», falladas reencoladas, resumen final
+- Sesión de estudio: flashcards de lo que toca hoy (tamaño configurable 10/20/30/50), «La sabía/Aún no», falladas reencoladas, resumen final
+- Repetición espaciada Leitner: cajas 0-5, intervalos 1/3/7/14/21 días, «Repasar hoy (N)», dominada = caja 5
 - TTS con voz neuronal Piper local (sin internet) + fallback a voces del navegador
 - Progreso y preferencias en localStorage
 
@@ -67,3 +68,11 @@ English Jet es una aplicación web para aprender vocabulario en inglés:
 ### 11. Sesión de estudio (flashcards) (2026-08-24)
 - **Problema**: la UI era un navegador de fichas (grid + revelar + marcar a mano); nada guiaba el estudio ni evaluaba recall activo
 - **Solución**: botón «Estudiar (N pendientes)» junto al ProgressBar → `src/components/StudySession.tsx` sustituye el `<main>` (estado `studying` en `MainLayout`, sin router). Deck: snapshot de `pendingWords` (nuevo en el contexto, `useMemo` en `VocabularyProvider`), shuffle Fisher-Yates, cap 20. Flashcards una a una con `src/components/StudyCard.tsx` (presentacional; IPA AmE + TTS reutilizando `speakPiper`/`speakNative`): revelar → «✗ Aún no / ✓ La sabía». Reglas: acierto **a la primera** → `toggleLearned` (persistido al instante); fallada → se reencola **al final** y aunque luego acierte sigue pendiente (volverá en la próxima sesión). Dirección EN↔ES fijada al iniciar. Atajos: Espacio=revelar, 1=Aún no, 2=La sabía (ignorados sobre input/select; guarda `canAnswer` ref contra doble respuesta con closure obsoleto que des-aprendería). Progreso `x/total` = únicas completadas. Resumen final: total/aciertos a la primera/lista EN+ES de falladas + «Repetir falladas», «Otra ronda» (si quedan pendientes) y «Terminar». Salir a mitad no pierde nada (persistencia por-respuesta). Verificado E2E con Firefox headless + geckodriver (7 checks: inicio, oculta respuesta, acierto→localStorage, fallo no avanza, atajos, salir conserva progreso)
+
+### 12. Repetición espaciada Leitner (2026-08-24)
+- **Problema**: la sesión marcaba aprendida con un solo acierto; sin repaso programado, lo «aprendido» se olvida y nunca vuelve a aparecer
+- **Solución**: cajas Leitner 0-5 sobre la sesión de estudio. `Word` gana `box` (0=nueva, 5=dominada; `learned` derivado de `box===5`) y `due` (YYYY-MM-DD). Intervalos al entrar en caja: 1→+1d, 2→+3d, 3→+7d, 4→+14d, 5→+21d (`INTERVAL_DAYS` en `src/data/words.ts`). Acierto a la primera → sube de caja (`promote`); primer fallo → caja 1 con due hoy (`demote`); las cajas 5 también vencen (+21d) y un fallo las des-domina. Deck de sesión = `dueWords` (nuevas + revisiones vencidas), revisiones priorizadas sobre nuevas antes del cap 20. Botón «Repasar hoy (N)» / «Al día ✓». Persistencia `vocabulary_progress` (mapa término→{box,due}, solo box>0) con migración automática desde v2 `vocabulary_learned` (→caja 5) y v1 `vocabulary_words`. Toggle manual del grid: dominada↔nueva. UI: ProgressBar apilada (dominadas granate + en repaso ámbar) con desglose «X dominadas · Y en repaso · Z nuevas»; `BoxDots` (5 puntos) en WordCard muestra la caja. Verificado E2E (8 checks): intervalos correctos en localStorage, fallo→caja 1 due hoy, conteo de due tras sesión, migración v2 y toggle manual
+
+### 13. Tamaño de sesión configurable (2026-08-24)
+- **Problema**: sesiones fijas de 20 palabras
+- **Solución**: selector «N / sesión» (10/20/30/50, `SESSION_SIZES` en `src/hooks/vocabularyContext.ts`) junto al botón «Repasar hoy». Persistido en `localStorage: vocabulary_session_size` (validado contra la lista, fallback 20). `buildSession` recibe el tamaño; «Otra ronda»/«Repetir falladas» lo respetan. E2E actualizado (cambio a 10 → sesión 0/10 y clave persistida)

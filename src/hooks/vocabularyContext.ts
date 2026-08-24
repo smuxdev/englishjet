@@ -3,8 +3,11 @@ import type { Word, FilterStatus } from "../types/vocabulary";
 
 export type StudyDirection = "en->es" | "es->en";
 
+export const SESSION_SIZES = [10, 20, 30, 50] as const;
+
 export interface VocabularyState {
   learnedCount: number;
+  inProgressCount: number; // cajas 1..4 (en repaso)
   pendingCount: number;
   totalCount: number;
   currentPage: number;
@@ -15,7 +18,7 @@ export interface VocabularyState {
 export interface VocabularyContextType {
   state: VocabularyState;
   words: Word[];
-  pendingWords: Word[];
+  dueWords: Word[]; // pendientes de repasar hoy (nuevas + revisiones vencidas)
   loading: boolean;
   loadError: boolean;
   filter: FilterStatus;
@@ -23,7 +26,10 @@ export interface VocabularyContextType {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   toggleLearned: (id: string) => void;
+  reviewWord: (id: string, correct: boolean) => void;
   goToPage: (page: number) => void;
+  sessionSize: number;
+  setSessionSize: (size: number) => void;
   selectedVoice: string;
   setSelectedVoice: (name: string) => void;
   voices: SpeechSynthesisVoice[];

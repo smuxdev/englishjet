@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useVocabularyStorage } from "../hooks/vocabularyContext";
+import { useVocabularyStorage, SESSION_SIZES } from "../hooks/vocabularyContext";
 import { ProgressBar } from "./ProgressBar";
 import { FilterTabs } from "./FilterTabs";
 import { WordCard } from "./WordCard";
@@ -12,6 +12,7 @@ export const MainLayout = () => {
   const {
     state,
     words,
+    dueWords,
     loading,
     loadError,
     filter,
@@ -20,6 +21,8 @@ export const MainLayout = () => {
     setSearchTerm,
     goToPage,
     studyDirection,
+    sessionSize,
+    setSessionSize,
   } = useVocabularyStorage();
   const [studying, setStudying] = useState(false);
 
@@ -34,14 +37,29 @@ export const MainLayout = () => {
             <p className="text-sm text-slate-500">Aprende vocabulario en inglés con ejemplos reales</p>
             <div className="flex items-center gap-3">
               {!studying && !loading && !loadError && (
-                <button
-                  onClick={() => setStudying(true)}
-                  disabled={state.pendingCount === 0}
-                  className="rounded-lg bg-[#751200] px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05] disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={state.pendingCount === 0 ? "¡Todo aprendido!" : undefined}
-                >
-                  {state.pendingCount === 0 ? "¡Todo aprendido!" : `Estudiar (${state.pendingCount} pendientes)`}
-                </button>
+                <>
+                  <select
+                    value={sessionSize}
+                    onChange={(e) => setSessionSize(Number(e.target.value))}
+                    className="text-xs rounded-lg px-2 py-1.5 border outline-none cursor-pointer bg-white text-slate-700 border-slate-300 focus:border-slate-400"
+                    title="Palabras por sesión"
+                    aria-label="Palabras por sesión"
+                  >
+                    {SESSION_SIZES.map((n) => (
+                      <option key={n} value={n}>
+                        {n} / sesión
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setStudying(true)}
+                    disabled={dueWords.length === 0}
+                    className="rounded-lg bg-[#751200] px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05] disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={dueWords.length === 0 ? "No hay repasos pendientes hoy" : undefined}
+                  >
+                    {dueWords.length === 0 ? "Al día ✓" : `Repasar hoy (${dueWords.length})`}
+                  </button>
+                </>
               )}
               <VoiceSelector />
             </div>

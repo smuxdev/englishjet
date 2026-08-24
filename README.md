@@ -1,6 +1,6 @@
 # English Jet
 
-Aplicación para aprender vocabulario inglés → español con sesiones de estudio tipo flashcard (recall activo, atajos de teclado), TTS neuronal Piper local y pronunciación IPA AmE.
+Aplicación para aprender vocabulario inglés → español con repetición espaciada (Leitner, cajas 1-5 con intervalos 1/3/7/14/21 días), sesiones de estudio tipo flashcard (recall activo, atajos de teclado), TTS neuronal Piper local y pronunciación IPA AmE.
 
 ## Requisitos
 - **Node.js 20+** (`node -v`)
@@ -54,4 +54,4 @@ Abre `http://localhost:3000` (serve) o `http://localhost:8000` (python).
 ## Notas
 - **Modelo Piper** (`public/piper/en_US-libritts-high.onnx` 131 MB) está en `.gitignore` para no superar el límite de 100 MB de GitHub. Sin `git-lfs`, clonar no lo trae; ejecuta `npm run download:piper` en el otro PC. Si usas `git lfs`, haz `git lfs track "public/piper/*.onnx"` antes del push.
 - **CSV** `public/duo_cards_en_export.csv` (638 palabras con `pronunciation` IPA) se copia a `dist/` en el build.
-- **localStorage**: solo se persisten progreso y preferencias (`vocabulary_learned` — términos aprendidos —, `vocabulary_voice`, `vocabulary_filter`, `vocabulary_direction`). La lista de palabras se lee siempre del CSV; el formato antiguo `vocabulary_words` se migra automáticamente sin perder progreso.
+- **localStorage**: solo se persisten progreso y preferencias (`vocabulary_progress` — mapa término→{caja Leitner, próxima revisión} —, `vocabulary_voice`, `vocabulary_filter`, `vocabulary_direction`, `vocabulary_session_size`). La lista de palabras se lee siempre del CSV; los formatos antiguos (`vocabulary_learned`, `vocabulary_words`) se migran automáticamente sin perder progreso.

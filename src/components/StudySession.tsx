@@ -3,8 +3,6 @@ import type { Word } from "../types/vocabulary";
 import { useVocabularyStorage, type StudyDirection } from "../hooks/vocabularyContext";
 import { StudyCard } from "./StudyCard";
 
-const SESSION_SIZE = 20;
-
 interface SessionCard {
   word: Word;
   failedOnce: boolean;
@@ -28,8 +26,13 @@ function shuffle<T>(items: T[]): T[] {
   return arr;
 }
 
-function buildSession(words: Word[], direction: StudyDirection): SessionState {
-  const deck = shuffle(words).slice(0, SESSION_SIZE);
+function buildSession(words: Word[], direction: StudyDirection, size: number): SessionState {
+  // Prioridad a las revisiones vencidas (caja > 0) sobre las nuevas, para que
+  // el backlog de repaso no se ahogue entre palabras nuevas; el orden final
+  // se baraja para mezclarlas dentro de la sesión.
+  const reviews = shuffle(words.filter((w) => w.box > 0));
+  const fresh = shuffle(words.filter((w) => w.box === 0));
+  const deck = shuffle([...reviews, ...fresh].slice(0, size));
   return {
     queue: deck.map((word) => ({ word, failedOnce: false })),
     direction,
@@ -41,9 +44,9 @@ function buildSession(words: Word[], direction: StudyDirection): SessionState {
 }
 
 export const StudySession = ({ onExit }: { onExit: () => void }) => {
-  const { pendingWords, toggleLearned, studyDirection } = useVocabularyStorage();
+  const { dueWords, reviewWord, studyDirection, sessionSize } = useVocabularyStorage();
   const [session, setSession] = useState<SessionState>(() =>
-    buildSession(pendingWords, studyDirection)
+    buildSession(dueWords, studyDirection, sessionSize)
   );
 
   const current = session.queue[0];
@@ -65,8 +68,10 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
     const card = session.queue[0];
     if (!card || !session.revealed || !canAnswer.current) return;
     canAnswer.current = false;
-    // Solo un acierto a la primera consolida: las reencoladas siguen pendientes
-    if (knew && !card.failedOnce) toggleLearned(card.word.id);
+    // Transición Leitner una sola vez por palabra y sesión: acierto a la
+    // primera sube de caja; el primer fallo baja a caja 1. Las reencoladas
+    // que luego aciertan ya transicionaron con su fallo.
+    if (!card.failedOnce) reviewWord(card.word.id, knew);
     setSession((s) => {
       const [head, ...rest] = s.queue;
       if (!head) return s;
@@ -130,18 +135,18 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
           <div className="flex flex-col sm:flex-row justify-center gap-2">
             {session.failedWords.length > 0 && (
               <button
-                onClick={() => setSession((s) => buildSession(s.failedWords, s.direction))}
+                onClick={() => setSession((s) => buildSession(s.failedWords, s.direction, sessionSize))}
                 className="rounded-lg bg-[#751200] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05]"
               >
                 Repetir falladas ({session.failedWords.length})
               </button>
             )}
-            {pendingWords.length > 0 && (
+            {dueWords.length > 0 && (
               <button
-                onClick={() => setSession(buildSession(pendingWords, studyDirection))}
+                onClick={() => setSession(buildSession(dueWords, studyDirection, sessionSize))}
                 className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
               >
-                Otra ronda ({Math.min(pendingWords.length, SESSION_SIZE)})
+                Otra ronda ({Math.min(dueWords.length, sessionSize)})
               </button>
             )}
             <button

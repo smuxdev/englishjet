@@ -4,7 +4,9 @@ export interface Word {
   spanishTranslation: string;
   exampleSentence: string;
   dateAdded: string;
-  learned: boolean;
+  learned: boolean; // derivado: box === MAX_BOX (dominada)
+  box: number; // 0 = nueva, 1..5 cajas Leitner
+  due: string; // YYYY-MM-DD de la próxima revisión
   pronunciation?: string;
 }
 

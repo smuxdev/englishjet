@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import type { Word, FilterStatus } from "../types/vocabulary";
-import { initializeWords, saveLearnedTerms } from "../data/words";
+import {
+  initializeWords,
+  saveProgress,
+  promote,
+  demote,
+  masteredProgress,
+  resetProgress,
+  todayStr,
+  MAX_BOX,
+  type WordProgress,
+} from "../data/words";
 import { PIPER_VOICE_ID } from "../services/piper";
 import {
   VocabularyContext,
+  SESSION_SIZES,
   type VocabularyState,
   type StudyDirection,
 } from "./vocabularyContext";
@@ -12,9 +23,20 @@ const PAGE_SIZE = 10;
 const FILTER_VALUES: readonly FilterStatus[] = ["all", "learned", "pending"];
 const DIRECTION_VALUES: readonly StudyDirection[] = ["en->es", "es->en"];
 
+const DEFAULT_SESSION_SIZE = 20;
+
+function readSessionSize(): number {
+  const value = Number(localStorage.getItem("vocabulary_session_size"));
+  return (SESSION_SIZES as readonly number[]).includes(value) ? value : DEFAULT_SESSION_SIZE;
+}
+
 function readStored<T extends string>(key: string, valid: readonly T[], fallback: T): T {
   const value = localStorage.getItem(key);
   return valid.includes(value as T) ? (value as T) : fallback;
+}
+
+function withProgress(word: Word, p: WordProgress): Word {
+  return { ...word, box: p.box, due: p.due, learned: p.box >= MAX_BOX };
 }
 
 export function VocabularyProvider({ children }: { children: ReactNode }) {
@@ -33,6 +55,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   const [studyDirection, setStudyDirectionState] = useState<StudyDirection>(() =>
     readStored("vocabulary_direction", DIRECTION_VALUES, "en->es")
   );
+  const [sessionSize, setSessionSizeState] = useState<number>(readSessionSize);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +90,11 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   const setStudyDirection = useCallback((dir: StudyDirection) => {
     setStudyDirectionState(dir);
     localStorage.setItem("vocabulary_direction", dir);
+  }, []);
+
+  const setSessionSize = useCallback((size: number) => {
+    setSessionSizeState(size);
+    localStorage.setItem("vocabulary_session_size", String(size));
   }, []);
 
   const setFilter = useCallback((next: FilterStatus) => {
@@ -104,15 +132,25 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     [filteredWords, currentPage]
   );
 
-  const learnedCount = useMemo(
-    () => allWords.reduce((n, w) => n + (w.learned ? 1 : 0), 0),
-    [allWords]
-  );
+  const { learnedCount, inProgressCount } = useMemo(() => {
+    let learned = 0;
+    let inProgress = 0;
+    for (const w of allWords) {
+      if (w.learned) learned++;
+      else if (w.box > 0) inProgress++;
+    }
+    return { learnedCount: learned, inProgressCount: inProgress };
+  }, [allWords]);
 
-  const pendingWords = useMemo(() => allWords.filter((w) => !w.learned), [allWords]);
+  const today = todayStr();
+  const dueWords = useMemo(
+    () => allWords.filter((w) => w.due <= today),
+    [allWords, today]
+  );
 
   const state: VocabularyState = {
     learnedCount,
+    inProgressCount,
     pendingCount: allWords.length - learnedCount,
     totalCount: allWords.length,
     currentPage,
@@ -125,15 +163,27 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // Marcado manual desde el grid: dominada (caja 5) ↔ nueva (caja 0).
   const toggleLearned = useCallback((id: string) => {
     setAllWords((words) =>
-      words.map((w) => (w.id === id ? { ...w, learned: !w.learned } : w))
+      words.map((w) =>
+        w.id === id ? withProgress(w, w.learned ? resetProgress() : masteredProgress()) : w
+      )
+    );
+  }, []);
+
+  // Transición Leitner desde la sesión: acierto sube de caja, fallo → caja 1.
+  const reviewWord = useCallback((id: string, correct: boolean) => {
+    setAllWords((words) =>
+      words.map((w) =>
+        w.id === id ? withProgress(w, correct ? promote(w.box) : demote()) : w
+      )
     );
   }, []);
 
   // Persistir progreso fuera del updater (StrictMode ejecuta los updaters dos veces).
   useEffect(() => {
-    if (!loading && !loadError) saveLearnedTerms(allWords);
+    if (!loading && !loadError) saveProgress(allWords);
   }, [allWords, loading, loadError]);
 
   return (
@@ -141,7 +191,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
       value={{
         state,
         words,
-        pendingWords,
+        dueWords,
         loading,
         loadError,
         filter,
@@ -149,7 +199,10 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
         searchTerm,
         setSearchTerm,
         toggleLearned,
+        reviewWord,
         goToPage,
+        sessionSize,
+        setSessionSize,
         selectedVoice,
         setSelectedVoice,
         voices,
