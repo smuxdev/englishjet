@@ -1,76 +1,72 @@
 import Papa from "papaparse";
-import type { Word as WordType } from "../types/vocabulary";
+import type { Word } from "../types/vocabulary";
 
-export interface Word extends WordType {
-  id: string;
+const CSV_URL = "/duo_cards_en_export.csv";
+const LEARNED_KEY = "vocabulary_learned";
+const LEGACY_WORDS_KEY = "vocabulary_words";
+
+interface CsvRow {
+  front?: string;
+  back?: string;
+  hint?: string;
+  publishedAt?: string;
+  pronunciation?: string;
 }
 
-export const WORDS: Word[] = [];
+// Solo se persiste el progreso (términos aprendidos), nunca la lista completa:
+// así los cambios del CSV (palabras nuevas, traducciones corregidas) llegan a
+// usuarios existentes sin invalidar su progreso.
+function readLearnedTerms(): Set<string> {
+  try {
+    const legacy = localStorage.getItem(LEGACY_WORDS_KEY);
+    if (legacy) {
+      const parsed = JSON.parse(legacy) as { englishTerm?: string; learned?: boolean }[];
+      const terms = parsed
+        .filter((w) => w.learned && typeof w.englishTerm === "string")
+        .map((w) => w.englishTerm as string);
+      localStorage.setItem(LEARNED_KEY, JSON.stringify(terms));
+      localStorage.removeItem(LEGACY_WORDS_KEY);
+      return new Set(terms);
+    }
+    const stored = localStorage.getItem(LEARNED_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as unknown;
+      if (Array.isArray(parsed)) {
+        return new Set(parsed.filter((t): t is string => typeof t === "string"));
+      }
+    }
+  } catch (error) {
+    console.error("Error reading learned terms from localStorage:", error);
+  }
+  return new Set();
+}
+
+export function saveLearnedTerms(words: Word[]): void {
+  try {
+    const terms = words.filter((w) => w.learned).map((w) => w.englishTerm);
+    localStorage.setItem(LEARNED_KEY, JSON.stringify(terms));
+  } catch (error) {
+    console.error("Error saving learned terms to localStorage:", error);
+  }
+}
 
 export async function initializeWords(): Promise<Word[]> {
-  if (typeof window === "undefined") {
-    return WORDS;
+  const response = await fetch(CSV_URL);
+  if (!response.ok) {
+    throw new Error(`Could not fetch ${CSV_URL} (${response.status})`);
   }
+  const text = await response.text();
+  const result = Papa.parse<CsvRow>(text, { header: true, skipEmptyLines: true });
+  const learned = readLearnedTerms();
 
-  const stored = localStorage.getItem("vocabulary_words");
-
-  if (stored) {
-    try {
-      const parsed: Word[] = JSON.parse(stored);
-      const hasPronInStored = parsed.some((w: any) => w.pronunciation);
-      if (hasPronInStored) {
-        WORDS.length = 0;
-        parsed.forEach((w) => WORDS.push(w as Word));
-        return WORDS;
-      }
-      // Stored sin pronunciación pero CSV ya tiene -> fusionar pronunciación sin perder progreso
-      try {
-        const response = await fetch("/duo_cards_en_export.csv");
-        const text = await response.text();
-        const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-        const csvMap = new Map<string, string>();
-        (result.data as any[]).forEach((row) => {
-          const front = (row.front || "").trim();
-          const pron = (row.pronunciation || "").trim();
-          if (front && pron) csvMap.set(front, pron);
-        });
-        const merged: Word[] = parsed.map((w: any, i: number) => ({
-          ...w,
-          id: w.id || `word-${i}`,
-          pronunciation: w.pronunciation || csvMap.get(w.englishTerm) || undefined,
-        }));
-        localStorage.setItem("vocabulary_words", JSON.stringify(merged));
-        WORDS.length = 0;
-        merged.forEach((w) => WORDS.push(w as Word));
-        return WORDS;
-      } catch {
-        WORDS.length = 0;
-        parsed.forEach((w) => WORDS.push(w as Word));
-        return WORDS;
-      }
-    } catch {}
-  }
-
-  try {
-    const response = await fetch("/duo_cards_en_export.csv");
-    const text = await response.text();
-    const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-
-    const words: Word[] = (result.data as any[]).map((row, i) => ({
-      id: `word-${i}`,
-      englishTerm: (row.front || "").trim(),
-      spanishTranslation: (row.back || "").trim(),
-      exampleSentence: (row.hint || "No example provided").trim(),
-      dateAdded: (row.publishedAt || "").trim(),
-      learned: false,
-      pronunciation: (row.pronunciation || "").trim() || undefined,
-    }));
-
-    WORDS.length = 0;
-    words.forEach((w) => WORDS.push(w));
-    return WORDS;
-  } catch (error) {
-    console.error("Error loading words from CSV:", error);
-    return WORDS;
-  }
+  return result.data
+    .map((row) => ({
+      englishTerm: (row.front ?? "").trim(),
+      spanishTranslation: (row.back ?? "").trim(),
+      exampleSentence: (row.hint ?? "").trim() || "No example provided",
+      dateAdded: (row.publishedAt ?? "").trim(),
+      pronunciation: (row.pronunciation ?? "").trim() || undefined,
+    }))
+    .filter((w) => w.englishTerm)
+    .map((w) => ({ ...w, id: w.englishTerm, learned: learned.has(w.englishTerm) }));
 }

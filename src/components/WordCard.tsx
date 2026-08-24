@@ -1,23 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Word } from "../types/vocabulary";
-import { useVocabularyStorage } from "../hooks/useVocabularyStorage";
-import { speakPiper, isPiperVoice, PIPER_HF_VOICE } from "../services/piper";
+import { useVocabularyStorage } from "../hooks/vocabularyContext";
+import { speakPiper, speakNative, isPiperVoice } from "../services/piper";
 
-function speakNative(text: string, voiceName: string, voices: SpeechSynthesisVoice[]) {
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
-  utterance.rate = 0.85;
-  utterance.pitch = 1;
-  const voice = voices.find((v) => v.name === voiceName)
-    || voices.find((v) => v.lang === "en-US" && v.name.includes("Google"))
-    || voices.find((v) => v.lang === "en-US")
-    || voices.find((v) => v.lang.startsWith("en"))
-    || voices[0];
-  if (voice) utterance.voice = voice;
-  setTimeout(() => window.speechSynthesis.speak(utterance), 50);
-}
-
+// El reveal se resetea al cambiar de palabra o dirección vía la key del
+// componente en MainLayout (`${word.id}-${studyDirection}`), no con efectos.
 export const WordCard = ({ word }: { word: Word }) => {
   const { toggleLearned, selectedVoice, voices, studyDirection } = useVocabularyStorage();
   const isLearned = word.learned;
@@ -25,13 +12,10 @@ export const WordCard = ({ word }: { word: Word }) => {
   const [loading, setLoading] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
-  // Reset reveal when direction changes or word changes
-  useEffect(() => { setRevealed(false); }, [studyDirection, word.id]);
-
   const handleSpeak = async (text: string) => {
     if (isPiperVoice(selectedVoice)) {
       setLoading(true);
-      try { await speakPiper(text, PIPER_HF_VOICE); } finally { setLoading(false); }
+      try { await speakPiper(text); } finally { setLoading(false); }
     } else {
       speakNative(text, selectedVoice, voices);
     }

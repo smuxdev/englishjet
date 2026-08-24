@@ -1,5 +1,5 @@
 import { MainLayout } from "./components/MainLayout";
-import { VocabularyProvider } from "./hooks/useVocabularyStorage";
+import { VocabularyProvider } from "./hooks/VocabularyProvider";
 
 function App() {
   return (

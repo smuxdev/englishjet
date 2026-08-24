@@ -1,5 +1,4 @@
-import { useState, useCallback } from "react";
-import { useVocabularyStorage } from "../hooks/useVocabularyStorage";
+import { useVocabularyStorage } from "../hooks/vocabularyContext";
 import { ProgressBar } from "./ProgressBar";
 import { FilterTabs } from "./FilterTabs";
 import { WordCard } from "./WordCard";
@@ -8,29 +7,18 @@ import { StudyDirectionToggle } from "./StudyDirectionToggle";
 import { AppHeader } from "./HeaderVariants";
 
 export const MainLayout = () => {
-  const { state, goToPage, getFilteredWords } = useVocabularyStorage();
-  const [filter, setFilter] = useState<"all" | "learned" | "pending">("all");
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const filteredWords = getFilteredWords(filter);
-
-  const displayedWords = searchTerm
-    ? filteredWords.filter(
-        (w) =>
-          w.englishTerm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          w.spanishTranslation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          w.exampleSentence.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : filteredWords;
-
-  const handleFilterChange = useCallback(
-    (newFilter: "all" | "learned" | "pending") => {
-      setFilter(newFilter);
-      localStorage.setItem("vocabulary_filter", newFilter);
-      goToPage(1, newFilter);
-    },
-    [goToPage]
-  );
+  const {
+    state,
+    words,
+    loading,
+    loadError,
+    filter,
+    setFilter,
+    searchTerm,
+    setSearchTerm,
+    goToPage,
+    studyDirection,
+  } = useVocabularyStorage();
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -41,9 +29,9 @@ export const MainLayout = () => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between gap-4 mb-3">
             <p className="text-sm text-slate-500">Aprende vocabulario en inglés con ejemplos reales</p>
-            <VoiceSelector variant={1} />
+            <VoiceSelector />
           </div>
-          <ProgressBar variant={1} />
+          <ProgressBar />
         </div>
       </div>
 
@@ -68,12 +56,21 @@ export const MainLayout = () => {
             </div>
             <StudyDirectionToggle />
           </div>
-          <FilterTabs filter={filter} onFilterChange={handleFilterChange} />
+          <FilterTabs filter={filter} onFilterChange={setFilter} />
         </section>
 
         {/* ===== TARJETAS DE PALABRAS ===== */}
         <section>
-          {displayedWords.length === 0 ? (
+          {loading ? (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
+              <p className="text-slate-500 text-sm">Cargando vocabulario...</p>
+            </div>
+          ) : loadError ? (
+            <div className="bg-white rounded-xl shadow-sm border border-red-200 p-12 text-center">
+              <p className="text-red-600 text-sm font-medium mb-1">No se pudo cargar el vocabulario</p>
+              <p className="text-slate-500 text-sm">Comprueba tu conexión y recarga la página</p>
+            </div>
+          ) : words.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
               <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -82,18 +79,20 @@ export const MainLayout = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {displayedWords.map((word: any) => (
-                <WordCard key={word.id} word={word} />
+              {words.map((word) => (
+                // La key incluye la dirección para remontar la tarjeta (y su
+                // estado "revelado") al cambiar de modo de estudio.
+                <WordCard key={`${word.id}-${studyDirection}`} word={word} />
               ))}
             </div>
           )}
         </section>
 
         {/* ===== PAGINACIÓN ===== */}
-        {!searchTerm && state.totalPages > 1 && (
+        {state.totalPages > 1 && (
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 px-4 sm:px-5 py-3 flex items-center justify-between">
             <button
-              onClick={() => goToPage(state.currentPage - 1, filter)}
+              onClick={() => goToPage(state.currentPage - 1)}
               disabled={state.currentPage <= 1}
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -108,7 +107,7 @@ export const MainLayout = () => {
             </span>
 
             <button
-              onClick={() => goToPage(state.currentPage + 1, filter)}
+              onClick={() => goToPage(state.currentPage + 1)}
               disabled={state.currentPage >= state.totalPages}
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >

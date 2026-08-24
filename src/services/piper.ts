@@ -1,104 +1,109 @@
-import { PiperWebEngine } from 'piper-tts-web';
+// Import solo de tipos: piper-tts-web embebe onnxruntime + transformers (~45 MB
+// minificado), así que el runtime se carga con import() dinámico al primer uso
+// para no arrastrarlo al bundle inicial.
+import type { PiperWebEngine, VoiceProvider } from "piper-tts-web";
 
-let engine: InstanceType<typeof PiperWebEngine> | null = null;
-let initPromise: Promise<void> | null = null;
-let currentAudio: HTMLAudioElement | null = null;
+export const PIPER_VOICE_ID = "piper-en_US-libritts-high";
+export const PIPER_HF_VOICE = "en_US-libritts-high";
+
+export function isPiperVoice(name: string) {
+  return name === PIPER_VOICE_ID;
+}
 
 // Modelo servido localmente desde public/piper/ (copiado a dist/piper/ en build).
 // Evita descarga de HuggingFace en cada carga. Archivos requeridos:
-// public/piper/en_US-libritts-high.onnx (131 MB) + .onnx.json
-// El resto (piper_phonemize.wasm/.data, onnx wasm) lo copia vite-plugin-static-copy.
-const LOCAL_MODEL_BASE = '/piper/en_US-libritts-high';
+// public/piper/en_US-libritts-high.onnx (131 MB, ver `npm run download:piper`) + .onnx.json
+// El resto (piper_phonemize.wasm/.data, onnx/*.wasm, worker/*.js) lo copia
+// vite-plugin-static-copy desde node_modules/piper-tts-web.
+const LOCAL_MODEL_BASE = "/piper/en_US-libritts-high";
 
-class LocalVoiceProvider {
-  #cache: Record<string, any> = {};
+class LocalVoiceProvider implements VoiceProvider {
+  #cache = new Map<string, unknown>();
+
   destroy() {
-    for (const v of Object.values(this.#cache)) {
-      if (typeof v === 'string' && v.startsWith('blob:')) URL.revokeObjectURL(v);
+    for (const value of this.#cache.values()) {
+      if (typeof value === "string" && value.startsWith("blob:")) URL.revokeObjectURL(value);
     }
-    this.#cache = {};
+    this.#cache.clear();
   }
+
   async fetch(_voice: string) {
-    const urls = [LOCAL_MODEL_BASE + '.onnx.json', LOCAL_MODEL_BASE + '.onnx'];
-    const results = await Promise.all(urls.map((url) => this.#fetchUrl(url)));
-    return results; // [json, blobUrl]
+    const urls = [LOCAL_MODEL_BASE + ".onnx.json", LOCAL_MODEL_BASE + ".onnx"];
+    return Promise.all(urls.map((url) => this.#fetchUrl(url))); // [json, blobUrl]
   }
+
   async #fetchUrl(url: string) {
-    if (this.#cache[url] !== undefined) return this.#cache[url];
+    const cached = this.#cache.get(url);
+    if (cached !== undefined) return cached;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('Could not fetch: ' + url + ' (' + res.status + ')');
-    const data = url.endsWith('.json') ? await res.json() : URL.createObjectURL(await res.blob());
-    this.#cache[url] = data;
+    if (!res.ok) throw new Error(`Could not fetch: ${url} (${res.status})`);
+    const data = url.endsWith(".json") ? await res.json() : URL.createObjectURL(await res.blob());
+    this.#cache.set(url, data);
     return data;
   }
 }
 
-async function getEngine() {
+let engine: PiperWebEngine | null = null;
+let initPromise: Promise<void> | null = null;
+let currentAudio: HTMLAudioElement | null = null;
+
+async function getEngine(): Promise<PiperWebEngine | null> {
   if (engine) return engine;
-  if (initPromise) await initPromise;
-  if (engine) return engine;
-  initPromise = (async () => {
-    try {
-      engine = new PiperWebEngine({ voiceProvider: new LocalVoiceProvider() } as any);
-    } catch (e) {
-      console.warn('[Piper] init failed, will fallback to native', e);
-      engine = null as any;
-    }
-  })();
+  if (!initPromise) {
+    initPromise = (async () => {
+      try {
+        const { PiperWebEngine } = await import("piper-tts-web");
+        engine = new PiperWebEngine({ voiceProvider: new LocalVoiceProvider() });
+      } catch (error) {
+        console.warn("[Piper] init failed, will fallback to native", error);
+        initPromise = null; // permitir reintento en la próxima llamada
+      }
+    })();
+  }
   await initPromise;
-  return engine!;
+  return engine;
 }
 
-function speakNativeFallback(text: string) {
+export function speakNative(text: string, voiceName?: string, voices?: SpeechSynthesisVoice[]) {
+  const available = voices ?? window.speechSynthesis.getVoices();
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'en-US';
-  u.rate = 0.85;
-  const v = window.speechSynthesis.getVoices().find(v => v.lang === 'en-US' && v.name.includes('Google'))
-    || window.speechSynthesis.getVoices().find(v => v.lang === 'en-US');
-  if (v) u.voice = v;
-  setTimeout(() => window.speechSynthesis.speak(u), 50);
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  utterance.rate = 0.85;
+  utterance.pitch = 1;
+  const voice =
+    (voiceName ? available.find((v) => v.name === voiceName) : undefined) ||
+    available.find((v) => v.lang === "en-US" && v.name.includes("Google")) ||
+    available.find((v) => v.lang === "en-US") ||
+    available.find((v) => v.lang.startsWith("en")) ||
+    available[0];
+  if (voice) utterance.voice = voice;
+  // cancel() inmediato + speak() en el mismo tick no suena en Chrome/Brave.
+  setTimeout(() => window.speechSynthesis.speak(utterance), 50);
 }
 
-export async function speakPiper(text: string, voiceId = 'en_US-amy-medium') {
+export async function speakPiper(text: string, voiceId = PIPER_HF_VOICE) {
   try {
     const eng = await getEngine();
-    if (!eng) throw new Error('no engine');
+    if (!eng) throw new Error("Piper engine unavailable");
     if (currentAudio) {
       currentAudio.pause();
-      currentAudio.remove();
       currentAudio = null;
     }
     window.speechSynthesis.cancel();
     const response = await eng.generate(text, voiceId, 0);
-    const audio = document.createElement('audio');
-    audio.autoplay = true;
-    const source = document.createElement('source');
-    source.type = response.file.type || 'audio/wav';
-    source.src = URL.createObjectURL(response.file);
-    audio.appendChild(source);
-    audio.style.display = 'none';
-    document.body.appendChild(audio);
+    const url = URL.createObjectURL(response.file);
+    const audio = new Audio(url);
     currentAudio = audio;
-    await audio.play().catch(() => {});
-    return new Promise<void>((resolve) => {
-      audio.onended = () => {
-        URL.revokeObjectURL(source.src);
-        audio.remove();
-        if (currentAudio === audio) currentAudio = null;
-        resolve();
-      };
+    await new Promise<void>((resolve) => {
+      audio.onended = () => resolve();
       audio.onerror = () => resolve();
+      audio.play().catch(() => resolve());
     });
-  } catch (e) {
-    console.warn('[Piper] generate failed, fallback to native', e);
-    speakNativeFallback(text);
+    URL.revokeObjectURL(url);
+    if (currentAudio === audio) currentAudio = null;
+  } catch (error) {
+    console.warn("[Piper] generate failed, fallback to native", error);
+    speakNative(text);
   }
 }
-
-export function isPiperVoice(name: string) {
-  return name === 'piper-en_US-libritts-high';
-}
-
-export const PIPER_VOICE_ID = 'piper-en_US-libritts-high';
-export const PIPER_HF_VOICE = 'en_US-libritts-high';

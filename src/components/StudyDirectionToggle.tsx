@@ -1,5 +1,5 @@
-import { useVocabularyStorage } from "../hooks/useVocabularyStorage";
-import type { StudyDirection } from "../hooks/useVocabularyStorage";
+import { useVocabularyStorage } from "../hooks/vocabularyContext";
+import type { StudyDirection } from "../hooks/vocabularyContext";
 
 export const StudyDirectionToggle = () => {
   const { studyDirection, setStudyDirection } = useVocabularyStorage();
