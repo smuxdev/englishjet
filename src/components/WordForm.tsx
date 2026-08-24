@@ -10,8 +10,9 @@ interface WordFormProps {
   bare?: boolean; // sin marco de tarjeta (para usar dentro de un Modal)
 }
 
+// text-base en móvil: con <16px iOS hace zoom automático al enfocar el input
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary outline-none";
+  "w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-base sm:text-sm text-slate-900 focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary outline-none";
 
 export const WordForm = ({ initial, onSave, onCancel, onDelete, bare = false }: WordFormProps) => {
   const [draft, setDraft] = useState<WordEdit>(initial);

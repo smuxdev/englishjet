@@ -40,9 +40,9 @@ export const MainLayout = () => {
       {/* Barra con Estudiar + VoiceSelector + Progress: degradado suave estilo hero */}
       <div className="bg-gradient-to-br from-[#eef4fb] via-white to-[#fdf0ef] border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <p className="text-sm text-body">Aprende el inglés que se habla de verdad — con ejemplos, IPA y voz neuronal</p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {!studying && !loading && !loadError && (
                 <>
                   <select
@@ -61,7 +61,7 @@ export const MainLayout = () => {
                   <button
                     onClick={() => setStudying(true)}
                     disabled={dueWords.length === 0}
-                    className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="whitespace-nowrap rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-dark disabled:opacity-40 disabled:cursor-not-allowed"
                     title={dueWords.length === 0 ? "No hay repasos pendientes hoy" : undefined}
                   >
                     {dueWords.length === 0 ? "Al día ✓" : `Repasar hoy (${dueWords.length}) →`}
@@ -102,12 +102,12 @@ export const MainLayout = () => {
                 className="w-full rounded-lg border border-slate-300 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-ink placeholder-slate-400 transition-colors focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary outline-none"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <StudyDirectionToggle />
               <StudyModeToggle />
             </div>
           </div>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <FilterTabs filter={filter} onFilterChange={setFilter} />
             {canEdit && !adding && (
               <button

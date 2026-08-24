@@ -8,9 +8,9 @@ export const ProgressBar = () => {
 
   return (
     <div>
-      <div className="flex items-center justify-between text-sm mb-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5 text-sm mb-1.5">
         <span className="text-body">Progreso de aprendizaje</span>
-        <span className="text-body">
+        <span className="text-body whitespace-nowrap">
           <span className="font-semibold text-mastered">{state.learnedCount}</span> dominadas
           {" · "}
           <span className="font-semibold text-review">{state.inProgressCount}</span> en repaso

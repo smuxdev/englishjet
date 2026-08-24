@@ -22,13 +22,14 @@ export const Modal = ({ title, emoji, onClose, children }: ModalProps) => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-2xl">
+      {/* En móvil: bottom sheet a ancho completo con altura en dvh (teclado en pantalla) */}
+      <div className="relative w-full max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-xl sm:rounded-xl bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 px-5 pt-4">
           <div className="flex items-center gap-2">
             {emoji && (

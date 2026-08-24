@@ -13,7 +13,7 @@ export const FilterTabs = ({ filter, onFilterChange }: FilterTabsProps) => {
   ];
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {tabs.map((tab) => (
         <button
           key={tab.key}
