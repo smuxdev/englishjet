@@ -20,6 +20,43 @@ function csvEditApi(): Plugin {
         res.statusCode = 204
         res.end()
       })
+      // Proxy a la API pública de Tatoeba para sugerir frases de ejemplo al
+      // crear/editar palabras (evita CORS; solo existe en dev, como la edición).
+      server.middlewares.use('/api/suggest-examples', (req, res) => {
+        const url = new URL(req.url ?? '', 'http://localhost')
+        const term = (url.searchParams.get('term') ?? '').trim()
+        res.setHeader('Content-Type', 'application/json')
+        if (!term || term.length > 80) {
+          res.statusCode = 400
+          res.end('[]')
+          return
+        }
+        const api = `https://tatoeba.org/eng/api_v0/search?from=eng&orphans=no&unapproved=no&query=${encodeURIComponent(term)}`
+        fetch(api, {
+          headers: { 'User-Agent': 'englishjet-dev (vocabulary app)' },
+          signal: AbortSignal.timeout(10_000),
+        })
+          .then((r) => r.json() as Promise<{ results?: { text?: string }[] }>)
+          .then((data) => {
+            const seen = new Set<string>()
+            const out: string[] = []
+            for (const item of data.results ?? []) {
+              const text = (item.text ?? '').trim()
+              if (text.length < 20 || text.length > 110) continue
+              const key = text.toLowerCase()
+              if (seen.has(key)) continue
+              seen.add(key)
+              out.push(text)
+              if (out.length >= 10) break
+            }
+            res.end(JSON.stringify(out))
+          })
+          .catch(() => {
+            res.statusCode = 502
+            res.end('[]')
+          })
+      })
+
       server.middlewares.use('/api/save-csv', (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405

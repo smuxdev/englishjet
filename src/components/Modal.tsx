@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalProps {
   title: string;
@@ -20,7 +21,10 @@ export const Modal = ({ title, emoji, onClose, children }: ModalProps) => {
     };
   }, [onClose]);
 
-  return (
+  // Portal a <body>: un ancestro con backdrop-filter/transform se convierte en
+  // containing block de los fixed y confinaría el modal a su caja (p.ej. la
+  // cabecera sticky con backdrop-blur).
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
@@ -51,6 +55,7 @@ export const Modal = ({ title, emoji, onClose, children }: ModalProps) => {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -1,6 +1,8 @@
 import { useState, type ReactNode, type InputHTMLAttributes } from "react";
 import type { WordEdit } from "../hooks/vocabularyContext";
 import { suggestIpa } from "../services/ipa";
+import { suggestExamplesFromTatoeba } from "../services/csvStore";
+import { findOccurrence } from "../services/cloze";
 
 interface WordFormProps {
   initial: WordEdit;
@@ -38,6 +40,29 @@ export const WordForm = ({ initial, onSave, onCancel, onDelete, bare = false }: 
     if (result) {
       setError(result);
       setConfirmingDelete(false);
+    }
+  };
+
+  const [examples, setExamples] = useState<string[]>([]);
+  const [suggestingExamples, setSuggestingExamples] = useState(false);
+  const [examplesMessage, setExamplesMessage] = useState<string | null>(null);
+
+  const handleSuggestExamples = async () => {
+    const term = draft.englishTerm.trim();
+    if (!term) return;
+    setSuggestingExamples(true);
+    setExamplesMessage(null);
+    setExamples([]);
+    try {
+      const raw = await suggestExamplesFromTatoeba(term);
+      // filtro fino en cliente: la frase debe contener el término o una flexión
+      const filtered = raw.filter((s) => findOccurrence(s, term)).slice(0, 4);
+      if (filtered.length === 0) {
+        setExamplesMessage("Sin frases en Tatoeba para ese término (¿sin internet?)");
+      }
+      setExamples(filtered);
+    } finally {
+      setSuggestingExamples(false);
     }
   };
 
@@ -82,7 +107,18 @@ export const WordForm = ({ initial, onSave, onCancel, onDelete, bare = false }: 
         {field("Inglés", "englishTerm", undefined, { className: `${inputClass} font-semibold mt-1` })}
         {field("Español", "spanishTranslation")}
         <label className="block">
-          <span className="text-xs font-medium text-slate-500">Ejemplo</span>
+          <span className="text-xs font-medium text-slate-500 flex items-center justify-between">
+            Ejemplo
+            <button
+              type="button"
+              onClick={handleSuggestExamples}
+              disabled={suggestingExamples || !draft.englishTerm.trim()}
+              aria-label="Sugerir ejemplo (Tatoeba)"
+              className="text-[11px] font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+            >
+              {suggestingExamples ? "Buscando en Tatoeba…" : "Sugerir"}
+            </button>
+          </span>
           <textarea
             rows={3}
             value={draft.exampleSentence}
@@ -93,6 +129,25 @@ export const WordForm = ({ initial, onSave, onCancel, onDelete, bare = false }: 
             className={`${inputClass} mt-1 resize-none`}
           />
         </label>
+        {examplesMessage && <p className="text-xs text-slate-400">{examplesMessage}</p>}
+        {examples.length > 0 && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 divide-y divide-primary/10">
+            {examples.map((sentence) => (
+              <button
+                key={sentence}
+                type="button"
+                onClick={() => {
+                  setDraft((d) => ({ ...d, exampleSentence: sentence }));
+                  setExamples([]);
+                }}
+                className="block w-full text-left px-3 py-2 text-sm text-body hover:bg-primary/10 transition-colors"
+                title="Usar esta frase"
+              >
+                {sentence}
+              </button>
+            ))}
+          </div>
+        )}
         {field(
           "Pronunciación (IPA AmE)",
           "pronunciation",
@@ -100,6 +155,7 @@ export const WordForm = ({ initial, onSave, onCancel, onDelete, bare = false }: 
             type="button"
             onClick={handleSuggestIpa}
             disabled={suggesting || !draft.englishTerm.trim()}
+            aria-label="Sugerir pronunciación (IPA)"
             className="text-[11px] font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline"
           >
             {suggesting ? "Buscando…" : "Sugerir"}

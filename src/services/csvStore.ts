@@ -15,6 +15,19 @@ export async function probeCsvEditable(): Promise<boolean> {
   }
 }
 
+// Sugerencias de frases desde Tatoeba vía el proxy del dev server; el filtro
+// fino (flexiones del término) se hace en el cliente con findOccurrence.
+export async function suggestExamplesFromTatoeba(term: string): Promise<string[]> {
+  try {
+    const res = await fetch(`/api/suggest-examples?term=${encodeURIComponent(term)}`);
+    if (!res.ok) return [];
+    const data = (await res.json()) as unknown;
+    return Array.isArray(data) ? data.filter((s): s is string => typeof s === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function saveCsvToServer(words: Word[]): Promise<boolean> {
   const csv = Papa.unparse(
     {
