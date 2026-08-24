@@ -1,0 +1,35 @@
+{
+  "name": "englishjet",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "download:piper": "mkdir -p public/piper && curl -L https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts/high/en_US-libritts-high.onnx -o public/piper/en_US-libritts-high.onnx && curl -L https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts/high/en_US-libritts-high.onnx.json -o public/piper/en_US-libritts-high.onnx.json && echo 'Piper model descargado en public/piper/'"
+  },
+  "dependencies": {
+    "onnxruntime-web": "^1.27.0",
+    "papaparse": "^5.6.0",
+    "piper-tts-web": "^1.1.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite-plugin-static-copy": "^4.1.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "autoprefixer": "^10.5.4",
+    "oxlint": "^1.75.0",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
+  }
+}

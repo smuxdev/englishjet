@@ -1,0 +1,29 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Modelo Piper grande (131 MB) supera límite 100 MB de GitHub sin LFS.
+# Para GitHub: se excluye y se descarga con `npm run download:piper` (ver README).
+# Para distributable ZIP sí se incluye (ver /tmp/englishjet-dist.zip)
+public/piper/en_US-libritts-high.onnx
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
