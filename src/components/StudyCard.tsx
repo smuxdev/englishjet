@@ -6,6 +6,9 @@ import { speakPiper, speakNative, isPiperVoice } from "../services/piper";
 
 interface StudyCardProps {
   word: Word;
+  // Frase rotada por la sesión; solo se muestra al revelar (la frase en el
+  // frente actuaba de muleta: se recordaba la tarjeta, no la palabra)
+  example: string;
   direction: StudyDirection;
   revealed: boolean;
   onReveal: () => void;
@@ -19,7 +22,7 @@ const Pronunciation = ({ ipa }: { ipa: string }) => (
   </p>
 );
 
-export const StudyCard = ({ word, direction, revealed, onReveal, showRevealButton = true }: StudyCardProps) => {
+export const StudyCard = ({ word, example, direction, revealed, onReveal, showRevealButton = true }: StudyCardProps) => {
   const { selectedVoice, voices } = useVocabularyStorage();
   const ready = voices.length > 0 || isPiperVoice(selectedVoice);
   const [loading, setLoading] = useState(false);
@@ -52,6 +55,13 @@ export const StudyCard = ({ word, direction, revealed, onReveal, showRevealButto
 
   const isEnToEs = direction === "en->es";
 
+  const exampleBlock = example ? (
+    <div className="mt-3 flex items-center justify-center gap-2">
+      <p className="text-sm text-slate-500 leading-relaxed max-w-md">{example}</p>
+      {speakButton(example, "Escuchar ejemplo")}
+    </div>
+  ) : null;
+
   return (
     <div className="relative overflow-hidden bg-white rounded-xl shadow-sm border border-slate-200 text-center">
       <div className="h-[3px] w-full bg-gradient-to-r from-primary via-accent to-review" />
@@ -65,12 +75,6 @@ export const StudyCard = ({ word, direction, revealed, onReveal, showRevealButto
             {speakButton(word.englishTerm, "Escuchar palabra")}
           </div>
           {word.pronunciation && <Pronunciation ipa={word.pronunciation} />}
-          {word.exampleSentence && (
-            <div className="mt-4 flex items-center justify-center gap-2">
-              <p className="text-sm text-slate-500 leading-relaxed max-w-md">{word.exampleSentence}</p>
-              {speakButton(word.exampleSentence, "Escuchar ejemplo")}
-            </div>
-          )}
         </>
       ) : (
         <h2 className="font-display text-2xl sm:text-3xl font-black text-ink">{word.spanishTranslation}</h2>
@@ -95,7 +99,10 @@ export const StudyCard = ({ word, direction, revealed, onReveal, showRevealButto
           </button>
           )
         ) : isEnToEs ? (
-          <p className="font-display text-xl font-bold text-primary-dark">{word.spanishTranslation}</p>
+          <>
+            <p className="font-display text-xl font-bold text-primary-dark">{word.spanishTranslation}</p>
+            {exampleBlock}
+          </>
         ) : (
           <>
             <div className="flex items-center justify-center gap-3">
@@ -103,12 +110,7 @@ export const StudyCard = ({ word, direction, revealed, onReveal, showRevealButto
               {speakButton(word.englishTerm, "Escuchar palabra")}
             </div>
             {word.pronunciation && <Pronunciation ipa={word.pronunciation} />}
-            {word.exampleSentence && (
-              <div className="mt-3 flex items-center justify-center gap-2">
-                <p className="text-sm text-slate-500 leading-relaxed max-w-md">{word.exampleSentence}</p>
-                {speakButton(word.exampleSentence, "Escuchar ejemplo")}
-              </div>
-            )}
+            {exampleBlock}
           </>
         )}
       </div>

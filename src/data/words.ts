@@ -130,8 +130,36 @@ export function saveProgress(words: Word[]): void {
 
 /* ===== Carga ===== */
 
+const EXTRA_EXAMPLES_URL = "/extra_examples.csv";
+
+// Sidecar opcional generado con `npm run fetch:examples` (Tatoeba, CC-BY):
+// term,example — varias filas por término. Si no existe, la app funciona igual.
+async function fetchExtraExamples(): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  try {
+    const response = await fetch(EXTRA_EXAMPLES_URL);
+    if (!response.ok) return map;
+    const text = await response.text();
+    const result = Papa.parse<{ term?: string; example?: string }>(text, {
+      header: true,
+      skipEmptyLines: true,
+    });
+    for (const row of result.data) {
+      const term = (row.term ?? "").trim();
+      const example = (row.example ?? "").trim();
+      if (!term || !example) continue;
+      const list = map.get(term) ?? [];
+      list.push(example);
+      map.set(term, list);
+    }
+  } catch {
+    // sin extras: cada palabra queda solo con su hint
+  }
+  return map;
+}
+
 export async function initializeWords(): Promise<Word[]> {
-  const response = await fetch(CSV_URL);
+  const [response, extras] = await Promise.all([fetch(CSV_URL), fetchExtraExamples()]);
   if (!response.ok) {
     throw new Error(`Could not fetch ${CSV_URL} (${response.status})`);
   }
@@ -153,6 +181,13 @@ export async function initializeWords(): Promise<Word[]> {
     .filter((w) => w.englishTerm)
     .map((w) => {
       const p = progress[w.englishTerm] ?? { box: 0, due: today };
-      return { ...w, id: w.englishTerm, box: p.box, due: p.due, learned: p.box >= MAX_BOX };
+      const seen = new Set<string>();
+      const examples = [w.exampleSentence, ...(extras.get(w.englishTerm) ?? [])].filter((e) => {
+        const key = e.trim().toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return { ...w, id: w.englishTerm, box: p.box, due: p.due, learned: p.box >= MAX_BOX, examples };
     });
 }

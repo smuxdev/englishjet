@@ -288,6 +288,8 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
               spanishTranslation: v.es,
               exampleSentence: v.example,
               pronunciation: v.pronunciation,
+              // el hint es siempre examples[0]; se conservan los extras del sidecar
+              examples: [v.example, ...w.examples.filter((e) => e !== w.exampleSentence)].filter(Boolean),
             }
           : w
       );
@@ -313,6 +315,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
         learned: false,
         box: 0,
         due: todayStr(),
+        examples: v.example ? [v.example] : [],
       };
       const updated = [word, ...allWords];
       const ok = await saveCsvToServer(updated);

@@ -12,6 +12,14 @@ import { StudyCard } from "./StudyCard";
 interface SessionCard {
   word: Word;
   failedOnce: boolean;
+  // Frase elegida al azar entre word.examples al construir el deck: cada
+  // sesión puede mostrar un contexto distinto (variabilidad de codificación)
+  example: string;
+}
+
+function pickExample(word: Word): string {
+  if (word.examples.length === 0) return "";
+  return word.examples[Math.floor(Math.random() * word.examples.length)];
 }
 
 interface SessionState {
@@ -47,7 +55,7 @@ function buildSession(
   const fresh = shuffle(words.filter((w) => w.box === 0));
   const deck = shuffle([...reviews, ...fresh].slice(0, size));
   return {
-    queue: deck.map((word) => ({ word, failedOnce: false })),
+    queue: deck.map((word) => ({ word, failedOnce: false, example: pickExample(word) })),
     direction,
     mode,
     revealed: false,
@@ -275,6 +283,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
       <StudyCard
         key={current.word.id}
         word={current.word}
+        example={current.example}
         direction={session.direction}
         revealed={session.revealed}
         onReveal={reveal}
