@@ -9,6 +9,7 @@ export interface WordEdit {
   englishTerm: string;
   spanishTranslation: string;
   exampleSentence: string;
+  pronunciation: string;
 }
 
 export interface VocabularyState {
@@ -35,6 +36,8 @@ export interface VocabularyContextType {
   reviewWord: (id: string, correct: boolean) => void;
   canEdit: boolean; // hay endpoint de escritura del CSV (solo `npm run dev`)
   editWord: (id: string, fields: WordEdit) => Promise<string | null>; // null = ok, string = error
+  addWord: (fields: WordEdit) => Promise<string | null>;
+  deleteWord: (id: string) => Promise<string | null>;
 
   goToPage: (page: number) => void;
   sessionSize: number;

@@ -6,6 +6,7 @@ import { WordCard } from "./WordCard";
 import { VoiceSelector } from "./VoiceSelector";
 import { StudyDirectionToggle } from "./StudyDirectionToggle";
 import { StudySession } from "./StudySession";
+import { WordForm } from "./WordForm";
 import { AppHeader } from "./HeaderVariants";
 
 export const MainLayout = () => {
@@ -23,8 +24,11 @@ export const MainLayout = () => {
     studyDirection,
     sessionSize,
     setSessionSize,
+    canEdit,
+    addWord,
   } = useVocabularyStorage();
   const [studying, setStudying] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -96,8 +100,33 @@ export const MainLayout = () => {
             </div>
             <StudyDirectionToggle />
           </div>
-          <FilterTabs filter={filter} onFilterChange={setFilter} />
+          <div className="flex items-center justify-between gap-3">
+            <FilterTabs filter={filter} onFilterChange={setFilter} />
+            {canEdit && !adding && (
+              <button
+                onClick={() => setAdding(true)}
+                className="rounded-lg border border-dashed border-[#751200]/50 px-4 py-2 text-sm font-medium text-[#751200] transition-colors hover:bg-red-50"
+              >
+                + Añadir palabra
+              </button>
+            )}
+          </div>
         </section>
+
+        {/* ===== ALTA DE PALABRA ===== */}
+        {adding && (
+          <section className="max-w-xl">
+            <WordForm
+              initial={{ englishTerm: "", spanishTranslation: "", exampleSentence: "", pronunciation: "" }}
+              onSave={async (fields) => {
+                const error = await addWord(fields);
+                if (!error) setAdding(false);
+                return error;
+              }}
+              onCancel={() => setAdding(false)}
+            />
+          </section>
+        )}
 
         {/* ===== TARJETAS DE PALABRAS ===== */}
         <section>

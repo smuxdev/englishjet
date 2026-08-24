@@ -3,6 +3,7 @@ import type { Word } from "../types/vocabulary";
 import { useVocabularyStorage } from "../hooks/vocabularyContext";
 import { speakPiper, speakNative, isPiperVoice } from "../services/piper";
 import { MAX_BOX } from "../data/words";
+import { WordForm } from "./WordForm";
 
 const BoxDots = ({ box }: { box: number }) => (
   <span
@@ -22,16 +23,13 @@ const BoxDots = ({ box }: { box: number }) => (
 // El reveal se resetea al cambiar de palabra o dirección vía la key del
 // componente en MainLayout (`${word.id}-${studyDirection}`), no con efectos.
 export const WordCard = ({ word }: { word: Word }) => {
-  const { toggleLearned, selectedVoice, voices, studyDirection, canEdit, editWord } =
+  const { toggleLearned, selectedVoice, voices, studyDirection, canEdit, editWord, deleteWord } =
     useVocabularyStorage();
   const isLearned = word.learned;
   const ready = voices.length > 0 || isPiperVoice(selectedVoice);
   const [loading, setLoading] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ englishTerm: "", spanishTranslation: "", exampleSentence: "" });
 
   const handleSpeak = async (text: string) => {
     if (isPiperVoice(selectedVoice)) {
@@ -42,30 +40,11 @@ export const WordCard = ({ word }: { word: Word }) => {
     }
   };
 
-  const startEdit = () => {
-    setDraft({
-      englishTerm: word.englishTerm,
-      spanishTranslation: word.spanishTranslation,
-      exampleSentence: word.exampleSentence,
-    });
-    setEditError(null);
-    setEditing(true);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    setEditError(null);
-    const error = await editWord(word.id, draft);
-    setSaving(false);
-    if (error) setEditError(error);
-    else setEditing(false);
-  };
-
   const isEnToEs = studyDirection === "en->es";
 
   const EditButton = canEdit ? (
     <button
-      onClick={startEdit}
+      onClick={() => setEditing(true)}
       className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-slate-700 hover:text-white transition-all duration-200"
       aria-label="Editar palabra"
       title="Editar"
@@ -77,57 +56,22 @@ export const WordCard = ({ word }: { word: Word }) => {
   ) : null;
 
   if (editing) {
-    const inputClass =
-      "w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-[#751200] focus:bg-white focus:ring-1 focus:ring-[#751200] outline-none";
     return (
-      <div className="rounded-xl shadow-sm border border-[#751200]/40 bg-white">
-        <div className="p-5 space-y-3">
-          <label className="block">
-            <span className="text-xs font-medium text-slate-500">Inglés</span>
-            <input
-              type="text"
-              value={draft.englishTerm}
-              onChange={(e) => setDraft((d) => ({ ...d, englishTerm: e.target.value }))}
-              className={`${inputClass} font-semibold mt-1`}
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium text-slate-500">Español</span>
-            <input
-              type="text"
-              value={draft.spanishTranslation}
-              onChange={(e) => setDraft((d) => ({ ...d, spanishTranslation: e.target.value }))}
-              className={`${inputClass} mt-1`}
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium text-slate-500">Ejemplo</span>
-            <textarea
-              rows={3}
-              value={draft.exampleSentence}
-              onChange={(e) => setDraft((d) => ({ ...d, exampleSentence: e.target.value }))}
-              className={`${inputClass} mt-1 resize-none`}
-            />
-          </label>
-          {editError && <p className="text-xs text-red-600">{editError}</p>}
-          <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => setEditing(false)}
-              disabled={saving}
-              className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-40"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="rounded-lg bg-[#751200] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05] disabled:opacity-40"
-            >
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-          </div>
-        </div>
-      </div>
+      <WordForm
+        initial={{
+          englishTerm: word.englishTerm,
+          spanishTranslation: word.spanishTranslation,
+          exampleSentence: word.exampleSentence,
+          pronunciation: word.pronunciation ?? "",
+        }}
+        onSave={async (fields) => {
+          const error = await editWord(word.id, fields);
+          if (!error) setEditing(false);
+          return error;
+        }}
+        onCancel={() => setEditing(false)}
+        onDelete={() => deleteWord(word.id)}
+      />
     );
   }
 

@@ -194,35 +194,91 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  // Edición con write-through al CSV: primero se escribe el fichero, y solo si
+  // CRUD con write-through al CSV: primero se escribe el fichero, y solo si
   // el servidor confirma se actualiza la memoria (sin estados intermedios que
   // revertir). Al cambiar el término inglés, el id pasa a ser el nuevo front y
-  // el efecto de persistencia re-escribe el progreso bajo la nueva clave; la
-  // IPA se descarta porque pertenece al término anterior.
-  const editWord = useCallback(
-    async (id: string, fields: WordEdit): Promise<string | null> => {
+  // el efecto de persistencia re-escribe el progreso bajo la nueva clave.
+  const CSV_WRITE_ERROR = "No se pudo escribir el CSV (¿la app no corre bajo npm run dev?)";
+
+  type ValidatedFields =
+    | { error: string }
+    | { error?: never; en: string; es: string; example: string; pronunciation: string | undefined };
+
+  const validateFields = useCallback(
+    (fields: WordEdit, excludeId: string | null): ValidatedFields => {
       const en = fields.englishTerm.trim();
       const es = fields.spanishTranslation.trim();
-      const example = fields.exampleSentence.trim();
-      if (!en || !es) return "El término en inglés y la traducción son obligatorios";
-      if (allWords.some((w) => w.id !== id && w.englishTerm.toLowerCase() === en.toLowerCase())) {
-        return "Ya existe otra palabra con ese término en inglés";
+      if (!en || !es) return { error: "El término en inglés y la traducción son obligatorios" };
+      if (
+        allWords.some((w) => w.id !== excludeId && w.englishTerm.toLowerCase() === en.toLowerCase())
+      ) {
+        return { error: "Ya existe otra palabra con ese término en inglés" };
       }
+      return {
+        en,
+        es,
+        example: fields.exampleSentence.trim(),
+        pronunciation: fields.pronunciation.trim() || undefined,
+      };
+    },
+    [allWords]
+  );
+
+  const editWord = useCallback(
+    async (id: string, fields: WordEdit): Promise<string | null> => {
+      const v = validateFields(fields, id);
+      if (v.error !== undefined) return v.error;
       const updated = allWords.map((w) =>
         w.id === id
           ? {
               ...w,
-              id: en,
-              englishTerm: en,
-              spanishTranslation: es,
-              exampleSentence: example,
-              pronunciation: en === w.englishTerm ? w.pronunciation : undefined,
+              id: v.en,
+              englishTerm: v.en,
+              spanishTranslation: v.es,
+              exampleSentence: v.example,
+              pronunciation: v.pronunciation,
             }
           : w
       );
       const ok = await saveCsvToServer(updated);
-      if (!ok) return "No se pudo escribir el CSV (¿la app no corre bajo npm run dev?)";
+      if (!ok) return CSV_WRITE_ERROR;
       setAllWords(updated);
+      return null;
+    },
+    [allWords, validateFields]
+  );
+
+  const addWord = useCallback(
+    async (fields: WordEdit): Promise<string | null> => {
+      const v = validateFields(fields, null);
+      if (v.error !== undefined) return v.error;
+      const word: Word = {
+        id: v.en,
+        englishTerm: v.en,
+        spanishTranslation: v.es,
+        exampleSentence: v.example,
+        pronunciation: v.pronunciation,
+        dateAdded: new Date().toISOString(),
+        learned: false,
+        box: 0,
+        due: todayStr(),
+      };
+      const updated = [word, ...allWords];
+      const ok = await saveCsvToServer(updated);
+      if (!ok) return CSV_WRITE_ERROR;
+      setAllWords(updated);
+      return null;
+    },
+    [allWords, validateFields]
+  );
+
+  const deleteWord = useCallback(
+    async (id: string): Promise<string | null> => {
+      const updated = allWords.filter((w) => w.id !== id);
+      if (updated.length === allWords.length) return "Palabra no encontrada";
+      const ok = await saveCsvToServer(updated);
+      if (!ok) return CSV_WRITE_ERROR;
+      setAllWords(updated); // su progreso desaparece al re-persistir el mapa
       return null;
     },
     [allWords]
@@ -249,6 +305,8 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
         reviewWord,
         canEdit,
         editWord,
+        addWord,
+        deleteWord,
         goToPage,
         sessionSize,
         setSessionSize,
