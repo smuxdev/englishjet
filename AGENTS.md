@@ -5,6 +5,7 @@ English Jet es una aplicación web para aprender vocabulario en inglés:
 - Palabras con traducción al español, ejemplo y pronunciación IPA (AmE)
 - Marcar como aprendida/pendiente, filtros y paginación (10/página)
 - Modo estudio: oculta la traducción hasta revelar, practicable EN→ES y ES→EN
+- Sesión de estudio: flashcards barajadas de pendientes (cap 20), «La sabía/Aún no», falladas reencoladas, resumen final
 - TTS con voz neuronal Piper local (sin internet) + fallback a voces del navegador
 - Progreso y preferencias en localStorage
 
@@ -62,3 +63,7 @@ English Jet es una aplicación web para aprender vocabulario en inglés:
 - **Código muerto eliminado**: `SimpleTest.tsx`, `SearchBar.tsx`, `App.css` (no importado), `src/assets/*` (hero.png, react.svg, vite.svg), variantes oscuras muertas de `VoiceSelector`/`ProgressBar` (prop `variant`)
 - **TTS**: `speakNative` consolidado en `src/services/piper.ts` (estaba duplicado en `WordCard`); leak de blob URL en `onerror` arreglado; init de Piper reintentable si falla; listener `voiceschanged` con `addEventListener` + cleanup
 - **Robustez**: estados de carga/error del CSV visibles en UI; `fetch` comprueba `res.ok`; `saveLearnedTerms` tolera localStorage lleno; `index.html` con `lang="es"`, título y meta description; oxlint ignora `public/`/`dist/`
+
+### 11. Sesión de estudio (flashcards) (2026-08-24)
+- **Problema**: la UI era un navegador de fichas (grid + revelar + marcar a mano); nada guiaba el estudio ni evaluaba recall activo
+- **Solución**: botón «Estudiar (N pendientes)» junto al ProgressBar → `src/components/StudySession.tsx` sustituye el `<main>` (estado `studying` en `MainLayout`, sin router). Deck: snapshot de `pendingWords` (nuevo en el contexto, `useMemo` en `VocabularyProvider`), shuffle Fisher-Yates, cap 20. Flashcards una a una con `src/components/StudyCard.tsx` (presentacional; IPA AmE + TTS reutilizando `speakPiper`/`speakNative`): revelar → «✗ Aún no / ✓ La sabía». Reglas: acierto **a la primera** → `toggleLearned` (persistido al instante); fallada → se reencola **al final** y aunque luego acierte sigue pendiente (volverá en la próxima sesión). Dirección EN↔ES fijada al iniciar. Atajos: Espacio=revelar, 1=Aún no, 2=La sabía (ignorados sobre input/select; guarda `canAnswer` ref contra doble respuesta con closure obsoleto que des-aprendería). Progreso `x/total` = únicas completadas. Resumen final: total/aciertos a la primera/lista EN+ES de falladas + «Repetir falladas», «Otra ronda» (si quedan pendientes) y «Terminar». Salir a mitad no pierde nada (persistencia por-respuesta). Verificado E2E con Firefox headless + geckodriver (7 checks: inicio, oculta respuesta, acierto→localStorage, fallo no avanza, atajos, salir conserva progreso)

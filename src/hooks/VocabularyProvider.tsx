@@ -109,6 +109,8 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     [allWords]
   );
 
+  const pendingWords = useMemo(() => allWords.filter((w) => !w.learned), [allWords]);
+
   const state: VocabularyState = {
     learnedCount,
     pendingCount: allWords.length - learnedCount,
@@ -139,6 +141,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
       value={{
         state,
         words,
+        pendingWords,
         loading,
         loadError,
         filter,

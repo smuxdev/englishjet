@@ -15,6 +15,7 @@ export interface VocabularyState {
 export interface VocabularyContextType {
   state: VocabularyState;
   words: Word[];
+  pendingWords: Word[];
   loading: boolean;
   loadError: boolean;
   filter: FilterStatus;

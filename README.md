@@ -1,6 +1,6 @@
 # English Jet
 
-Aplicación para aprender vocabulario inglés → español con modo estudio, TTS neuronal Piper local y pronunciación IPA AmE.
+Aplicación para aprender vocabulario inglés → español con sesiones de estudio tipo flashcard (recall activo, atajos de teclado), TTS neuronal Piper local y pronunciación IPA AmE.
 
 ## Requisitos
 - **Node.js 20+** (`node -v`)

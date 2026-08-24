@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useVocabularyStorage } from "../hooks/vocabularyContext";
 import { ProgressBar } from "./ProgressBar";
 import { FilterTabs } from "./FilterTabs";
 import { WordCard } from "./WordCard";
 import { VoiceSelector } from "./VoiceSelector";
 import { StudyDirectionToggle } from "./StudyDirectionToggle";
+import { StudySession } from "./StudySession";
 import { AppHeader } from "./HeaderVariants";
 
 export const MainLayout = () => {
@@ -19,23 +21,43 @@ export const MainLayout = () => {
     goToPage,
     studyDirection,
   } = useVocabularyStorage();
+  const [studying, setStudying] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-100">
       <AppHeader />
 
-      {/* Barra con VoiceSelector + Progress */}
+      {/* Barra con Estudiar + VoiceSelector + Progress */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between gap-4 mb-3">
             <p className="text-sm text-slate-500">Aprende vocabulario en inglés con ejemplos reales</p>
-            <VoiceSelector />
+            <div className="flex items-center gap-3">
+              {!studying && !loading && !loadError && (
+                <button
+                  onClick={() => setStudying(true)}
+                  disabled={state.pendingCount === 0}
+                  className="rounded-lg bg-[#751200] px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05] disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={state.pendingCount === 0 ? "¡Todo aprendido!" : undefined}
+                >
+                  {state.pendingCount === 0 ? "¡Todo aprendido!" : `Estudiar (${state.pendingCount} pendientes)`}
+                </button>
+              )}
+              <VoiceSelector />
+            </div>
           </div>
           <ProgressBar />
         </div>
       </div>
 
-      {/* ===== CONTENIDO ===== */}
+      {/* ===== SESIÓN DE ESTUDIO ===== */}
+      {studying ? (
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+          <StudySession onExit={() => setStudying(false)} />
+        </main>
+      ) : (
+
+      /* ===== CONTENIDO ===== */
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
         {/* ===== BUSCADOR + FILTROS + DIRECCIÓN ===== */}
@@ -119,6 +141,7 @@ export const MainLayout = () => {
           </section>
         )}
       </main>
+      )}
     </div>
   );
 };
