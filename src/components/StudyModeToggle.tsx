@@ -26,6 +26,7 @@ export const StudyModeToggle = () => {
     <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 border border-slate-200">
       {option("cards", "Tarjetas", "Revelar y autoevaluarse")}
       {option("typing", "Escribir", "Escribir la respuesta y que la app la corrija")}
+      {option("cloze", "Contexto", "Completar el hueco de la palabra dentro de una frase real")}
     </div>
   );
 };

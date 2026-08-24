@@ -27,7 +27,7 @@ import {
 const PAGE_SIZE = 10;
 const FILTER_VALUES: readonly FilterStatus[] = ["all", "learned", "pending"];
 const DIRECTION_VALUES: readonly StudyDirection[] = ["en->es", "es->en"];
-const MODE_VALUES: readonly StudyMode[] = ["cards", "typing"];
+const MODE_VALUES: readonly StudyMode[] = ["cards", "typing", "cloze"];
 
 const DEFAULT_SESSION_SIZE = 20;
 

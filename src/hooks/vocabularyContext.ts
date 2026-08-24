@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import type { Word, FilterStatus } from "../types/vocabulary";
 
 export type StudyDirection = "en->es" | "es->en";
-export type StudyMode = "cards" | "typing";
+export type StudyMode = "cards" | "typing" | "cloze";
 
 export const SESSION_SIZES = [10, 20, 30, 50] as const;
 

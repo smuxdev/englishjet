@@ -6,6 +6,7 @@ import {
   type StudyMode,
 } from "../hooks/vocabularyContext";
 import { checkAnswer, type Verdict } from "../services/answer";
+import { findOccurrence, type ClozeMatch } from "../services/cloze";
 import { speakPiper, speakNative, isPiperVoice } from "../services/piper";
 import { StudyCard } from "./StudyCard";
 
@@ -15,11 +16,29 @@ interface SessionCard {
   // Frase elegida al azar entre word.examples al construir el deck: cada
   // sesión puede mostrar un contexto distinto (variabilidad de codificación)
   example: string;
+  // Modo Contexto: hueco localizado en la frase; null = sin ocurrencia en
+  // ninguna frase → la tarjeta cae al comportamiento de escritura ES→EN
+  cloze: ClozeMatch | null;
 }
 
 function pickExample(word: Word): string {
   if (word.examples.length === 0) return "";
   return word.examples[Math.floor(Math.random() * word.examples.length)];
+}
+
+function makeCard(word: Word, mode: StudyMode): SessionCard {
+  if (mode === "cloze") {
+    for (const example of shuffle(word.examples)) {
+      const match = findOccurrence(example, word.englishTerm);
+      if (match) return { word, failedOnce: false, example, cloze: match };
+    }
+  }
+  return { word, failedOnce: false, example: pickExample(word), cloze: null };
+}
+
+const VERDICT_RANK: Record<Verdict, number> = { fail: 0, almost: 1, ok: 2 };
+function bestVerdict(a: Verdict, b: Verdict): Verdict {
+  return VERDICT_RANK[a] >= VERDICT_RANK[b] ? a : b;
 }
 
 interface SessionState {
@@ -55,7 +74,7 @@ function buildSession(
   const fresh = shuffle(words.filter((w) => w.box === 0));
   const deck = shuffle([...reviews, ...fresh].slice(0, size));
   return {
-    queue: deck.map((word) => ({ word, failedOnce: false, example: pickExample(word) })),
+    queue: deck.map((word) => makeCard(word, mode)),
     direction,
     mode,
     revealed: false,
@@ -140,9 +159,16 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
       return;
     }
     if (!draft.trim()) return;
-    const target =
-      session.direction === "en->es" ? current.word.spanishTranslation : current.word.englishTerm;
-    const verdict = checkAnswer(draft, target);
+    let verdict: Verdict;
+    if (session.mode === "cloze") {
+      // vale tanto el lema («cobweb») como la forma de la frase («cobwebs»)
+      verdict = checkAnswer(draft, current.word.englishTerm);
+      if (current.cloze) verdict = bestVerdict(verdict, checkAnswer(draft, current.cloze.surface));
+    } else {
+      const target =
+        session.direction === "en->es" ? current.word.spanishTranslation : current.word.englishTerm;
+      verdict = checkAnswer(draft, target);
+    }
     canAnswer.current = true;
     setSession((s) => ({ ...s, revealed: true, typed: { input: draft, verdict } }));
   };
@@ -154,17 +180,20 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
   const cardId = current?.word.id ?? null;
   useEffect(() => {
     if (!autoplay || !cardId || !current) return;
-    const wantsBack = session.direction === "es->en";
+    // En Contexto se pronuncia la frase completa al revelarse
+    const wantsBack = session.mode === "cloze" || session.direction === "es->en";
     if (wantsBack && !session.revealed) return;
     const key = `${cardId}:${wantsBack ? "back" : "front"}`;
     if (spokenRef.current === key) return;
     spokenRef.current = key;
+    const text =
+      session.mode === "cloze" && current.example ? current.example : current.word.englishTerm;
     if (isPiperVoice(selectedVoice)) {
-      void speakPiper(current.word.englishTerm);
+      void speakPiper(text);
     } else {
-      speakNative(current.word.englishTerm, selectedVoice, voices);
+      speakNative(text, selectedVoice, voices);
     }
-  }, [autoplay, cardId, session.revealed, session.direction, current, selectedVoice, voices]);
+  }, [autoplay, cardId, session.revealed, session.direction, session.mode, current, selectedVoice, voices]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -242,12 +271,19 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
   }
 
   /* ===== Tarjeta en curso ===== */
+  const typedAnswerText =
+    session.mode === "cloze"
+      ? current.cloze?.surface ?? current.word.englishTerm
+      : session.direction === "en->es"
+        ? current.word.spanishTranslation
+        : current.word.englishTerm;
+
   return (
     <section className="max-w-xl mx-auto space-y-4">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-4 sm:px-5 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="font-display text-sm font-bold text-ink">
-            Sesión de estudio <span className="text-slate-400 font-normal">· {session.direction === "en->es" ? "EN → ES" : "ES → EN"}{session.mode === "typing" ? " · Escribir" : ""}</span>
+            Sesión de estudio <span className="text-slate-400 font-normal">· {session.mode === "cloze" ? "Contexto" : `${session.direction === "en->es" ? "EN → ES" : "ES → EN"}${session.mode === "typing" ? " · Escribir" : ""}`}</span>
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -280,17 +316,61 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
         </div>
       </div>
 
-      <StudyCard
-        key={current.word.id}
-        word={current.word}
-        example={current.example}
-        direction={session.direction}
-        revealed={session.revealed}
-        onReveal={reveal}
-        showRevealButton={session.mode === "cards"}
-      />
+      {session.mode === "cloze" && current.cloze ? (
+        /* ===== Tarjeta Contexto: la frase con el hueco ===== */
+        <div className="relative overflow-hidden bg-white rounded-xl shadow-sm border border-slate-200 text-center">
+          <div className="h-[3px] w-full bg-gradient-to-r from-primary via-accent to-review" />
+          <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-primary/5" aria-hidden="true" />
+          <div className="relative p-6 sm:p-10">
+            <p className="font-display text-lg sm:text-xl font-bold text-ink leading-relaxed max-w-lg mx-auto">
+              {current.cloze.parts.map((part, i) =>
+                part.hit ? (
+                  session.revealed ? (
+                    <mark key={i} className="bg-primary/10 text-primary-dark rounded px-1">
+                      {part.text}
+                    </mark>
+                  ) : (
+                    <span
+                      key={i}
+                      className="inline-block align-baseline min-w-14 mx-0.5 border-b-2 border-primary/60 text-transparent select-none"
+                      aria-label="hueco"
+                    >
+                      ____
+                    </span>
+                  )
+                ) : (
+                  <span key={i}>{part.text}</span>
+                )
+              )}
+            </p>
+            <p className="mt-3 text-sm text-slate-500">
+              Pista: <span className="font-semibold text-primary-dark">{current.word.spanishTranslation}</span>
+            </p>
+            {session.revealed && (
+              <div className="mt-6 pt-5 border-t border-slate-100">
+                <p className="font-display text-xl font-bold text-ink">
+                  {current.word.englishTerm}
+                  {current.word.pronunciation && (
+                    <span className="ml-2 text-sm font-mono font-normal text-slate-500">{current.word.pronunciation}</span>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <StudyCard
+          key={current.word.id}
+          word={current.word}
+          example={current.example}
+          direction={session.mode === "cloze" ? "es->en" : session.direction}
+          revealed={session.revealed}
+          onReveal={reveal}
+          showRevealButton={session.mode === "cards"}
+        />
+      )}
 
-      {session.mode === "typing" ? (
+      {session.mode !== "cards" ? (
         <form onSubmit={handleTypedSubmit} className="space-y-3">
           {!session.revealed ? (
             <div className="flex gap-2">
@@ -300,7 +380,13 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
                 type="text"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder={session.direction === "en->es" ? "Escribe la traducción en español..." : "Escribe la palabra en inglés..."}
+                placeholder={
+                  session.mode === "cloze"
+                    ? "Escribe la palabra que falta..."
+                    : session.direction === "en->es"
+                      ? "Escribe la traducción en español..."
+                      : "Escribe la palabra en inglés..."
+                }
                 className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                 autoComplete="off"
                 autoCapitalize="off"
@@ -324,17 +410,13 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
                 ) : session.typed.verdict === "almost" ? (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                     <span className="font-semibold">≈ Casi</span> — escribiste «{session.typed.input}»; la forma correcta es{" "}
-                    <span className="font-semibold">
-                      {session.direction === "en->es" ? current.word.spanishTranslation : current.word.englishTerm}
-                    </span>
+                    <span className="font-semibold">{typedAnswerText}</span>
                   </div>
                 ) : (
                   <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                     <span className="font-semibold">✗ Incorrecto</span> — escribiste{" "}
                     <span className="line-through">{session.typed.input}</span>; la respuesta era{" "}
-                    <span className="font-semibold">
-                      {session.direction === "en->es" ? current.word.spanishTranslation : current.word.englishTerm}
-                    </span>
+                    <span className="font-semibold">{typedAnswerText}</span>
                   </div>
                 )}
                 <button
