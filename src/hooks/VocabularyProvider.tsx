@@ -65,6 +65,9 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   const [studyMode, setStudyModeState] = useState<StudyMode>(() =>
     readStored("vocabulary_study_mode", MODE_VALUES, "cards")
   );
+  const [autoplay, setAutoplayState] = useState(
+    () => localStorage.getItem("vocabulary_autoplay") === "1"
+  );
   const [canEdit, setCanEdit] = useState(false);
   const [activity, setActivity] = useState<ActivityMap>(readActivity);
 
@@ -121,6 +124,11 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   const setStudyMode = useCallback((mode: StudyMode) => {
     setStudyModeState(mode);
     localStorage.setItem("vocabulary_study_mode", mode);
+  }, []);
+
+  const setAutoplay = useCallback((on: boolean) => {
+    setAutoplayState(on);
+    localStorage.setItem("vocabulary_autoplay", on ? "1" : "0");
   }, []);
 
   const setFilter = useCallback((next: FilterStatus) => {
@@ -360,6 +368,8 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
         setStudyDirection,
         studyMode,
         setStudyMode,
+        autoplay,
+        setAutoplay,
         stats,
       }}
     >

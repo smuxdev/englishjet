@@ -6,6 +6,7 @@ import {
   type StudyMode,
 } from "../hooks/vocabularyContext";
 import { checkAnswer, type Verdict } from "../services/answer";
+import { speakPiper, speakNative, isPiperVoice } from "../services/piper";
 import { StudyCard } from "./StudyCard";
 
 interface SessionCard {
@@ -58,7 +59,17 @@ function buildSession(
 }
 
 export const StudySession = ({ onExit }: { onExit: () => void }) => {
-  const { dueWords, reviewWord, studyDirection, studyMode, sessionSize } = useVocabularyStorage();
+  const {
+    dueWords,
+    reviewWord,
+    studyDirection,
+    studyMode,
+    sessionSize,
+    autoplay,
+    setAutoplay,
+    selectedVoice,
+    voices,
+  } = useVocabularyStorage();
   const [session, setSession] = useState<SessionState>(() =>
     buildSession(dueWords, studyDirection, studyMode, sessionSize)
   );
@@ -127,6 +138,25 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
     canAnswer.current = true;
     setSession((s) => ({ ...s, revealed: true, typed: { input: draft, verdict } }));
   };
+
+  // Autoplay: EN→ES pronuncia el término al aparecer la tarjeta; ES→EN al
+  // revelarse (es cuando el inglés se hace visible). spokenRef evita repetir
+  // la misma clave en re-renders y en el doble-efecto de StrictMode.
+  const spokenRef = useRef<string | null>(null);
+  const cardId = current?.word.id ?? null;
+  useEffect(() => {
+    if (!autoplay || !cardId || !current) return;
+    const wantsBack = session.direction === "es->en";
+    if (wantsBack && !session.revealed) return;
+    const key = `${cardId}:${wantsBack ? "back" : "front"}`;
+    if (spokenRef.current === key) return;
+    spokenRef.current = key;
+    if (isPiperVoice(selectedVoice)) {
+      void speakPiper(current.word.englishTerm);
+    } else {
+      speakNative(current.word.englishTerm, selectedVoice, voices);
+    }
+  }, [autoplay, cardId, session.revealed, session.direction, current, selectedVoice, voices]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -210,6 +240,17 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
             Sesión de estudio <span className="text-slate-400 font-normal">· {session.direction === "en->es" ? "EN → ES" : "ES → EN"}{session.mode === "typing" ? " · Escribir" : ""}</span>
           </span>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setAutoplay(!autoplay)}
+              aria-pressed={autoplay}
+              aria-label="Pronunciación automática"
+              title={autoplay ? "Pronunciación automática: activada" : "Pronunciación automática: desactivada"}
+              className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                autoplay ? "bg-[#751200] text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              }`}
+            >
+              🔊 auto
+            </button>
             <span className="text-sm text-slate-500">
               <span className="font-semibold text-slate-700">{done}</span>/{session.total}
             </span>

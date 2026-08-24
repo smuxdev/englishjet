@@ -59,6 +59,8 @@ export interface VocabularyContextType {
   setStudyDirection: (dir: StudyDirection) => void;
   studyMode: StudyMode;
   setStudyMode: (mode: StudyMode) => void;
+  autoplay: boolean;
+  setAutoplay: (on: boolean) => void;
   stats: StudyStats;
 }
 
