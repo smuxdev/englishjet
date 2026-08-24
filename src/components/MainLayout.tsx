@@ -8,6 +8,7 @@ import { StudyDirectionToggle } from "./StudyDirectionToggle";
 import { StudyModeToggle } from "./StudyModeToggle";
 import { StudySession } from "./StudySession";
 import { WordForm } from "./WordForm";
+import { Modal } from "./Modal";
 import { StatsPanel } from "./StatsPanel";
 import { AppHeader } from "./HeaderVariants";
 
@@ -119,10 +120,11 @@ export const MainLayout = () => {
           </div>
         </section>
 
-        {/* ===== ALTA DE PALABRA ===== */}
+        {/* ===== ALTA DE PALABRA (modal) ===== */}
         {adding && (
-          <section className="max-w-xl">
+          <Modal title="Añadir palabra" emoji="➕" onClose={() => setAdding(false)}>
             <WordForm
+              bare
               initial={{ englishTerm: "", spanishTranslation: "", exampleSentence: "", pronunciation: "" }}
               onSave={async (fields) => {
                 const error = await addWord(fields);
@@ -131,7 +133,7 @@ export const MainLayout = () => {
               }}
               onCancel={() => setAdding(false)}
             />
-          </section>
+          </Modal>
         )}
 
         {/* ===== TARJETAS DE PALABRAS ===== */}

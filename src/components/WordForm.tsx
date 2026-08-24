@@ -7,12 +7,13 @@ interface WordFormProps {
   onSave: (fields: WordEdit) => Promise<string | null>; // null = ok, string = error
   onCancel: () => void;
   onDelete?: () => Promise<string | null>; // solo en edición
+  bare?: boolean; // sin marco de tarjeta (para usar dentro de un Modal)
 }
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary outline-none";
 
-export const WordForm = ({ initial, onSave, onCancel, onDelete }: WordFormProps) => {
+export const WordForm = ({ initial, onSave, onCancel, onDelete, bare = false }: WordFormProps) => {
   const [draft, setDraft] = useState<WordEdit>(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +76,7 @@ export const WordForm = ({ initial, onSave, onCancel, onDelete }: WordFormProps)
     </label>
   );
 
-  return (
-    <div className="rounded-xl shadow-sm border border-primary/40 bg-white">
+  const body = (
       <div className="p-5 space-y-3">
         {field("Inglés", "englishTerm", undefined, { className: `${inputClass} font-semibold mt-1` })}
         {field("Español", "spanishTranslation")}
@@ -155,6 +155,8 @@ export const WordForm = ({ initial, onSave, onCancel, onDelete }: WordFormProps)
           </div>
         </div>
       </div>
-    </div>
   );
+
+  if (bare) return body;
+  return <div className="rounded-xl shadow-sm border border-primary/40 bg-white">{body}</div>;
 };
