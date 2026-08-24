@@ -11,6 +11,7 @@ import {
   MAX_BOX,
   type WordProgress,
 } from "../data/words";
+import { readActivity, logReview, computeStreak, type ActivityMap } from "../data/activity";
 import { PIPER_VOICE_ID } from "../services/piper";
 import { probeCsvEditable, saveCsvToServer } from "../services/csvStore";
 import {
@@ -18,6 +19,7 @@ import {
   SESSION_SIZES,
   type VocabularyState,
   type StudyDirection,
+  type StudyStats,
   type WordEdit,
 } from "./vocabularyContext";
 
@@ -59,6 +61,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   );
   const [sessionSize, setSessionSizeState] = useState<number>(readSessionSize);
   const [canEdit, setCanEdit] = useState(false);
+  const [activity, setActivity] = useState<ActivityMap>(readActivity);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +164,30 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     [allWords, today]
   );
 
+  const stats: StudyStats = useMemo(() => {
+    const boxCounts = new Array<number>(MAX_BOX + 1).fill(0);
+    let dueTomorrow = 0;
+    let dueWeek = 0;
+    const tomorrow = todayStr(1);
+    const weekEnd = todayStr(7);
+    for (const w of allWords) {
+      boxCounts[w.box]++;
+      if (w.due > today && w.due <= weekEnd) {
+        dueWeek++;
+        if (w.due === tomorrow) dueTomorrow++;
+      }
+    }
+    const day = activity[today];
+    return {
+      streak: computeStreak(activity),
+      todayReviewed: day?.reviewed ?? 0,
+      todayCorrect: day?.correct ?? 0,
+      boxCounts,
+      dueTomorrow,
+      dueWeek,
+    };
+  }, [allWords, activity, today]);
+
   const state: VocabularyState = {
     learnedCount,
     inProgressCount,
@@ -186,13 +213,19 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Transición Leitner desde la sesión: acierto sube de caja, fallo → caja 1.
-  const reviewWord = useCallback((id: string, correct: boolean) => {
-    setAllWords((words) =>
-      words.map((w) =>
-        w.id === id ? withProgress(w, correct ? promote(w.box) : demote()) : w
-      )
-    );
-  }, []);
+  // El log de actividad se escribe aquí (cuerpo del handler, corre una vez),
+  // nunca dentro de los updaters, que StrictMode ejecuta por duplicado.
+  const reviewWord = useCallback(
+    (id: string, correct: boolean) => {
+      setAllWords((words) =>
+        words.map((w) =>
+          w.id === id ? withProgress(w, correct ? promote(w.box) : demote()) : w
+        )
+      );
+      setActivity(logReview(activity, correct));
+    },
+    [activity]
+  );
 
   // CRUD con write-through al CSV: primero se escribe el fichero, y solo si
   // el servidor confirma se actualiza la memoria (sin estados intermedios que
@@ -315,6 +348,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
         voices,
         studyDirection,
         setStudyDirection,
+        stats,
       }}
     >
       {children}

@@ -7,6 +7,7 @@ import { VoiceSelector } from "./VoiceSelector";
 import { StudyDirectionToggle } from "./StudyDirectionToggle";
 import { StudySession } from "./StudySession";
 import { WordForm } from "./WordForm";
+import { StatsPanel } from "./StatsPanel";
 import { AppHeader } from "./HeaderVariants";
 
 export const MainLayout = () => {
@@ -69,6 +70,7 @@ export const MainLayout = () => {
             </div>
           </div>
           <ProgressBar />
+          <StatsPanel />
         </div>
       </div>
 

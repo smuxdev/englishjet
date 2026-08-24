@@ -5,6 +5,15 @@ export type StudyDirection = "en->es" | "es->en";
 
 export const SESSION_SIZES = [10, 20, 30, 50] as const;
 
+export interface StudyStats {
+  streak: number;
+  todayReviewed: number;
+  todayCorrect: number;
+  boxCounts: number[]; // índice = caja 0..5
+  dueTomorrow: number;
+  dueWeek: number; // vencen en los próximos 7 días (sin contar hoy)
+}
+
 export interface WordEdit {
   englishTerm: string;
   spanishTranslation: string;
@@ -47,6 +56,7 @@ export interface VocabularyContextType {
   voices: SpeechSynthesisVoice[];
   studyDirection: StudyDirection;
   setStudyDirection: (dir: StudyDirection) => void;
+  stats: StudyStats;
 }
 
 export const VocabularyContext = createContext<VocabularyContextType | null>(null);
