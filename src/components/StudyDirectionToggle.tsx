@@ -7,13 +7,13 @@ export const StudyDirectionToggle = () => {
   const optionClass = (active: boolean) =>
     `flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
       active
-        ? "bg-[#751200] text-white shadow-sm"
-        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+        ? "bg-primary text-white shadow-sm"
+        : "text-body hover:text-ink hover:bg-white"
     }`;
 
   return (
     <div className="flex items-center gap-2">
-      <span className="hidden sm:inline text-xs font-medium text-slate-500 shrink-0">Practicar:</span>
+      <span className="hidden sm:inline text-xs font-medium text-body shrink-0">Practicar:</span>
       <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 border border-slate-200">
         <button
           onClick={() => setStudyDirection("en->es" as StudyDirection)}

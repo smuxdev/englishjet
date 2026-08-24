@@ -185,28 +185,30 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
   if (!current) {
     return (
       <section className="max-w-xl mx-auto space-y-4">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-          <h2 className="text-xl font-bold text-slate-900 mb-1">¡Sesión completada!</h2>
-          <p className="text-sm text-slate-500 mb-6">
+        <div className="relative overflow-hidden bg-ink rounded-xl shadow-md p-8 text-center">
+          <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-white/5" aria-hidden="true" />
+          <div className="absolute -bottom-12 -left-12 w-44 h-44 rounded-full bg-accent/10" aria-hidden="true" />
+          <h2 className="relative font-display text-2xl font-black text-white mb-1">🎉 ¡Sesión completada!</h2>
+          <p className="relative text-sm text-slate-300 mb-6">
             {session.total} {session.total === 1 ? "palabra" : "palabras"} · {session.firstTry} a la primera · {session.failedWords.length} {session.failedWords.length === 1 ? "fallada" : "falladas"}
           </p>
 
           {session.failedWords.length > 0 && (
-            <div className="mb-6 text-left bg-slate-50 rounded-lg border border-slate-200 divide-y divide-slate-200">
+            <div className="relative mb-6 text-left bg-white/10 rounded-lg divide-y divide-white/10">
               {session.failedWords.map((w) => (
                 <div key={w.id} className="px-4 py-2 flex items-baseline justify-between gap-3">
-                  <span className="text-sm font-semibold text-slate-700">{w.englishTerm}</span>
-                  <span className="text-sm text-slate-500 text-right">{w.spanishTranslation}</span>
+                  <span className="text-sm font-semibold text-white">{w.englishTerm}</span>
+                  <span className="text-sm text-slate-300 text-right">{w.spanishTranslation}</span>
                 </div>
               ))}
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row justify-center gap-2">
+          <div className="relative flex flex-col sm:flex-row justify-center gap-2">
             {session.failedWords.length > 0 && (
               <button
                 onClick={() => setSession((s) => buildSession(s.failedWords, s.direction, s.mode, sessionSize))}
-                className="rounded-lg bg-[#751200] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05]"
+                className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-dark"
               >
                 Repetir falladas ({session.failedWords.length})
               </button>
@@ -214,14 +216,14 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
             {dueWords.length > 0 && (
               <button
                 onClick={() => setSession(buildSession(dueWords, studyDirection, studyMode, sessionSize))}
-                className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
+                className="rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/20"
               >
                 Otra ronda ({Math.min(dueWords.length, sessionSize)})
               </button>
             )}
             <button
               onClick={onExit}
-              className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
+              className="rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/20"
             >
               Terminar
             </button>
@@ -236,7 +238,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
     <section className="max-w-xl mx-auto space-y-4">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-4 sm:px-5 py-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate-700">
+          <span className="font-display text-sm font-bold text-ink">
             Sesión de estudio <span className="text-slate-400 font-normal">· {session.direction === "en->es" ? "EN → ES" : "ES → EN"}{session.mode === "typing" ? " · Escribir" : ""}</span>
           </span>
           <div className="flex items-center gap-3">
@@ -246,7 +248,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
               aria-label="Pronunciación automática"
               title={autoplay ? "Pronunciación automática: activada" : "Pronunciación automática: desactivada"}
               className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                autoplay ? "bg-[#751200] text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                autoplay ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
               }`}
             >
               🔊 auto
@@ -264,7 +266,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
         </div>
         <div className="w-full rounded-full h-1.5 bg-slate-200">
           <div
-            className="h-full rounded-full transition-all duration-300 ease-out bg-[#751200]"
+            className="h-full rounded-full transition-all duration-300 ease-out bg-primary"
             style={{ width: `${session.total > 0 ? (done / session.total) * 100 : 0}%` }}
           />
         </div>
@@ -290,7 +292,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder={session.direction === "en->es" ? "Escribe la traducción en español..." : "Escribe la palabra en inglés..."}
-                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-[#751200] focus:ring-1 focus:ring-[#751200] outline-none"
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                 autoComplete="off"
                 autoCapitalize="off"
                 spellCheck={false}
@@ -298,7 +300,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
               <button
                 type="submit"
                 disabled={!draft.trim()}
-                className="rounded-xl bg-[#751200] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#8f1a05] disabled:opacity-40"
+                className="rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-dark disabled:opacity-40"
               >
                 Comprobar <span className="font-normal opacity-70 hidden sm:inline">· ⏎</span>
               </button>
@@ -307,7 +309,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
             session.typed && (
               <div className="space-y-3">
                 {session.typed.verdict === "ok" ? (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                  <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-mastered">
                     ✓ Correcto
                   </div>
                 ) : session.typed.verdict === "almost" ? (
@@ -329,7 +331,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
                 <button
                   type="submit"
                   autoFocus
-                  className="w-full rounded-xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
+                  className="w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
                 >
                   Continuar <span className="font-normal opacity-70 hidden sm:inline">· ⏎</span>
                 </button>
@@ -342,15 +344,15 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => answer(false)}
-              className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
             >
-              ✗ Aún no <span className="font-normal text-amber-600 hidden sm:inline">· 1</span>
+              ✗ Aún no <span className="font-normal text-red-400 hidden sm:inline">· 1</span>
             </button>
             <button
               onClick={() => answer(true)}
-              className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
+              className="rounded-xl border border-green-200 bg-green-50 px-4 py-3.5 text-sm font-semibold text-mastered transition-colors hover:bg-green-100"
             >
-              ✓ La sabía <span className="font-normal text-emerald-600 hidden sm:inline">· 2</span>
+              ✓ La sabía <span className="font-normal text-green-500 hidden sm:inline">· 2</span>
             </button>
           </div>
         )

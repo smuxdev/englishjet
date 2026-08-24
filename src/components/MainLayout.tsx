@@ -36,11 +36,11 @@ export const MainLayout = () => {
     <div className="min-h-screen bg-slate-100">
       <AppHeader />
 
-      {/* Barra con Estudiar + VoiceSelector + Progress */}
-      <div className="bg-white border-b border-slate-200">
+      {/* Barra con Estudiar + VoiceSelector + Progress: degradado suave estilo hero */}
+      <div className="bg-gradient-to-br from-[#eef4fb] via-white to-[#fdf0ef] border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between gap-4 mb-3">
-            <p className="text-sm text-slate-500">Aprende vocabulario en inglés con ejemplos reales</p>
+            <p className="text-sm text-body">Aprende el inglés que se habla de verdad — con ejemplos, IPA y voz neuronal</p>
             <div className="flex items-center gap-3">
               {!studying && !loading && !loadError && (
                 <>
@@ -60,10 +60,10 @@ export const MainLayout = () => {
                   <button
                     onClick={() => setStudying(true)}
                     disabled={dueWords.length === 0}
-                    className="rounded-lg bg-[#751200] px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05] disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-dark disabled:opacity-40 disabled:cursor-not-allowed"
                     title={dueWords.length === 0 ? "No hay repasos pendientes hoy" : undefined}
                   >
-                    {dueWords.length === 0 ? "Al día ✓" : `Repasar hoy (${dueWords.length})`}
+                    {dueWords.length === 0 ? "Al día ✓" : `Repasar hoy (${dueWords.length}) →`}
                   </button>
                 </>
               )}
@@ -98,7 +98,7 @@ export const MainLayout = () => {
                 placeholder="Buscar palabra en inglés o español..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-[#751200] focus:bg-white focus:ring-1 focus:ring-[#751200] outline-none"
+                className="w-full rounded-lg border border-slate-300 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-ink placeholder-slate-400 transition-colors focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary outline-none"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export const MainLayout = () => {
             {canEdit && !adding && (
               <button
                 onClick={() => setAdding(true)}
-                className="rounded-lg border border-dashed border-[#751200]/50 px-4 py-2 text-sm font-medium text-[#751200] transition-colors hover:bg-red-50"
+                className="rounded-lg border border-dashed border-primary/50 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
               >
                 + Añadir palabra
               </button>

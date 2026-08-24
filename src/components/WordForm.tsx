@@ -10,7 +10,7 @@ interface WordFormProps {
 }
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-[#751200] focus:bg-white focus:ring-1 focus:ring-[#751200] outline-none";
+  "w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary outline-none";
 
 export const WordForm = ({ initial, onSave, onCancel, onDelete }: WordFormProps) => {
   const [draft, setDraft] = useState<WordEdit>(initial);
@@ -76,7 +76,7 @@ export const WordForm = ({ initial, onSave, onCancel, onDelete }: WordFormProps)
   );
 
   return (
-    <div className="rounded-xl shadow-sm border border-[#751200]/40 bg-white">
+    <div className="rounded-xl shadow-sm border border-primary/40 bg-white">
       <div className="p-5 space-y-3">
         {field("Inglés", "englishTerm", undefined, { className: `${inputClass} font-semibold mt-1` })}
         {field("Español", "spanishTranslation")}
@@ -99,7 +99,7 @@ export const WordForm = ({ initial, onSave, onCancel, onDelete }: WordFormProps)
             type="button"
             onClick={handleSuggestIpa}
             disabled={suggesting || !draft.englishTerm.trim()}
-            className="text-[11px] font-medium text-[#751200] hover:underline disabled:opacity-40 disabled:no-underline"
+            className="text-[11px] font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline"
           >
             {suggesting ? "Buscando…" : "Sugerir"}
           </button>,
@@ -148,7 +148,7 @@ export const WordForm = ({ initial, onSave, onCancel, onDelete }: WordFormProps)
             <button
               onClick={handleSave}
               disabled={busy}
-              className="rounded-lg bg-[#751200] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05] disabled:opacity-40"
+              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-accent-dark disabled:opacity-40"
             >
               {busy ? "Guardando…" : "Guardar"}
             </button>

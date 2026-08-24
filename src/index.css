@@ -1,1 +1,23 @@
 @import "tailwindcss";
+
+/* Sistema visual inspirado en yourdailyamerican.com (tema Astra):
+   Lato para titulares, Roboto Flex para cuerpo, azul primario + rojo CTA,
+   tarjetas blancas con barra superior de color y detalles pastel. */
+@theme {
+  --font-sans: "Roboto Flex", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Lato", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-ink: #1b2d45; /* titulares navy */
+  --color-body: #3e5068; /* texto azul-gris */
+  --color-primary: #046bd2;
+  --color-primary-dark: #045cb4;
+  --color-accent: #d94452; /* CTA rojo */
+  --color-accent-dark: #c13a47;
+  --color-wash: #f0f5fa; /* fondo sutil azulado */
+  --color-mastered: #2e7d32; /* dominadas */
+  --color-review: #c47015; /* en repaso */
+}
+
+body {
+  color: var(--color-body);
+}

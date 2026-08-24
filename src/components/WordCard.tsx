@@ -5,7 +5,14 @@ import { speakPiper, speakNative, isPiperVoice } from "../services/piper";
 import { MAX_BOX } from "../data/words";
 import { WordForm } from "./WordForm";
 
-const BoxDots = ({ box }: { box: number }) => (
+// Color de estado estilo YDA: nueva = azul, en repaso = naranja, dominada = verde
+function stateClasses(word: Word) {
+  if (word.learned) return { bar: "bg-mastered", dot: "bg-mastered", tint: "bg-mastered/10" };
+  if (word.box > 0) return { bar: "bg-review", dot: "bg-review", tint: "bg-review/10" };
+  return { bar: "bg-primary", dot: "bg-primary", tint: "bg-primary/10" };
+}
+
+const BoxDots = ({ box, dotClass }: { box: number; dotClass: string }) => (
   <span
     className="inline-flex items-center gap-1"
     title={box === 0 ? "Sin empezar" : `Caja ${box}/${MAX_BOX} (Leitner)`}
@@ -14,7 +21,7 @@ const BoxDots = ({ box }: { box: number }) => (
     {Array.from({ length: MAX_BOX }, (_, i) => (
       <span
         key={i}
-        className={`w-1.5 h-1.5 rounded-full ${i < box ? "bg-[#751200]" : "bg-slate-200"}`}
+        className={`w-1.5 h-1.5 rounded-full ${i < box ? dotClass : "bg-slate-200"}`}
       />
     ))}
   </span>
@@ -81,17 +88,19 @@ export const WordCard = ({ word }: { word: Word }) => {
     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
   );
 
+  const stateCls = stateClasses(word);
+
   return (
-    <div className={`group rounded-xl shadow-sm border transition-all duration-200 hover:shadow-md ${
-      isLearned ? "bg-emerald-50 border-emerald-200" : "bg-white border-slate-200"
-    }`}>
-      <div className="p-5 flex flex-col h-full">
+    <div className="group relative overflow-hidden rounded-xl shadow-sm border border-slate-200 bg-white transition-all duration-200 hover:shadow-md">
+      <div className={`h-[3px] w-full ${stateCls.bar}`} />
+      <div className={`absolute -top-6 -right-6 w-20 h-20 rounded-full ${stateCls.tint}`} aria-hidden="true" />
+      <div className="relative p-5 flex flex-col h-full">
         {/* ===== FRENTE: siempre visible (depende de la dirección) ===== */}
         {isEnToEs ? (
           <>
             <div className="flex items-start gap-2 mb-3">
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-bold text-slate-900 leading-tight truncate">
+                <h3 className="font-display text-lg font-bold text-ink leading-tight truncate">
                   {word.englishTerm}
                 </h3>
                 {word.pronunciation && (
@@ -100,13 +109,13 @@ export const WordCard = ({ word }: { word: Word }) => {
                   </p>
                 )}
                 <div className="mt-1.5">
-                  <BoxDots box={word.box} />
+                  <BoxDots box={word.box} dotClass={stateCls.dot} />
                 </div>
               </div>
               <button
                 onClick={() => handleSpeak(word.englishTerm)}
                 disabled={!ready || loading}
-                className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-[#751200] hover:text-white transition-all duration-200 disabled:opacity-30"
+                className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-primary hover:text-white transition-all duration-200 disabled:opacity-30"
                 aria-label="Escuchar palabra"
               >
                 {SpeakerIcon}
@@ -114,7 +123,7 @@ export const WordCard = ({ word }: { word: Word }) => {
               {EditButton}
               <button
                 onClick={() => toggleLearned(word.id)}
-                className={`shrink-0 p-1.5 rounded-lg transition-all duration-200 ${isLearned ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-[#751200]"}`}
+                className={`shrink-0 p-1.5 rounded-lg transition-all duration-200 ${isLearned ? "bg-mastered text-white hover:bg-mastered/80" : "bg-slate-100 text-slate-400 hover:bg-accent/10 hover:text-accent"}`}
                 aria-label={isLearned ? "Marcar como pendiente" : "Marcar como aprendida"}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -131,7 +140,7 @@ export const WordCard = ({ word }: { word: Word }) => {
                 <button
                   onClick={() => handleSpeak(word.exampleSentence)}
                   disabled={!ready || loading}
-                  className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-[#751200] hover:text-white transition-all duration-200 disabled:opacity-30"
+                  className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-primary hover:text-white transition-all duration-200 disabled:opacity-30"
                   aria-label="Escuchar ejemplo"
                 >
                   {SpeakerIcon}
@@ -143,17 +152,17 @@ export const WordCard = ({ word }: { word: Word }) => {
           <>
             <div className="flex items-center gap-2 mb-4">
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-bold text-slate-900 leading-tight">
+                <h3 className="font-display text-lg font-bold text-ink leading-tight">
                   {word.spanishTranslation}
                 </h3>
                 <div className="mt-1.5">
-                  <BoxDots box={word.box} />
+                  <BoxDots box={word.box} dotClass={stateCls.dot} />
                 </div>
               </div>
               {EditButton}
               <button
                 onClick={() => toggleLearned(word.id)}
-                className={`shrink-0 p-1.5 rounded-lg transition-all duration-200 ${isLearned ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-[#751200]"}`}
+                className={`shrink-0 p-1.5 rounded-lg transition-all duration-200 ${isLearned ? "bg-mastered text-white hover:bg-mastered/80" : "bg-slate-100 text-slate-400 hover:bg-accent/10 hover:text-accent"}`}
                 aria-label={isLearned ? "Marcar como pendiente" : "Marcar como aprendida"}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -169,7 +178,7 @@ export const WordCard = ({ word }: { word: Word }) => {
           {!revealed ? (
             <button
               onClick={() => setRevealed(true)}
-              className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 hover:border-slate-400 transition-colors"
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 py-2.5 text-sm font-medium text-slate-500 hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-colors"
               aria-label={isEnToEs ? "Mostrar traducción al español" : "Mostrar traducción al inglés"}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -182,7 +191,7 @@ export const WordCard = ({ word }: { word: Word }) => {
             <div className="space-y-2">
               {isEnToEs ? (
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-slate-700 flex-1">{word.spanishTranslation}</p>
+                  <p className="text-sm font-semibold text-primary-dark flex-1">{word.spanishTranslation}</p>
                   <button
                     onClick={() => setRevealed(false)}
                     className="shrink-0 p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -198,7 +207,7 @@ export const WordCard = ({ word }: { word: Word }) => {
                 <>
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-700 truncate">{word.englishTerm}</p>
+                      <p className="text-sm font-semibold text-primary-dark truncate">{word.englishTerm}</p>
                       {word.pronunciation && (
                         <p className="text-xs font-mono text-slate-500">{word.pronunciation} <span className="font-sans text-[10px] tracking-widest uppercase text-slate-400 ml-1">AmE</span></p>
                       )}
@@ -206,7 +215,7 @@ export const WordCard = ({ word }: { word: Word }) => {
                     <button
                       onClick={() => handleSpeak(word.englishTerm)}
                       disabled={!ready || loading}
-                      className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-[#751200] hover:text-white transition-all duration-200 disabled:opacity-30"
+                      className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-primary hover:text-white transition-all duration-200 disabled:opacity-30"
                       aria-label="Escuchar palabra"
                     >
                       {SpeakerIcon}
@@ -230,7 +239,7 @@ export const WordCard = ({ word }: { word: Word }) => {
                       <button
                         onClick={() => handleSpeak(word.exampleSentence)}
                         disabled={!ready || loading}
-                        className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-[#751200] hover:text-white transition-all duration-200 disabled:opacity-30"
+                        className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-primary hover:text-white transition-all duration-200 disabled:opacity-30"
                         aria-label="Escuchar ejemplo"
                       >
                         {SpeakerIcon}

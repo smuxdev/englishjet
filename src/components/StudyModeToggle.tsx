@@ -7,8 +7,8 @@ export const StudyModeToggle = () => {
   const optionClass = (active: boolean) =>
     `flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
       active
-        ? "bg-[#751200] text-white shadow-sm"
-        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+        ? "bg-primary text-white shadow-sm"
+        : "text-body hover:text-ink hover:bg-white"
     }`;
 
   const option = (mode: StudyMode, label: string, title: string) => (

@@ -36,7 +36,7 @@ export const VoiceSelector = () => {
       <select
         value={selectedVoice}
         onChange={(e) => setSelectedVoice(e.target.value)}
-        className="text-xs rounded-lg px-2 py-1.5 border outline-none cursor-pointer bg-white text-slate-700 border-slate-300 focus:border-slate-400"
+        className="text-xs rounded-lg px-2 py-1.5 border outline-none cursor-pointer bg-white text-slate-700 border-slate-300 focus:border-primary"
         style={{ maxWidth: 220 }}
         title={`${displayVoices.length} voces ★ + Piper`}
       >
