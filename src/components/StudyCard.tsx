@@ -9,6 +9,7 @@ interface StudyCardProps {
   // Frase rotada por la sesión; solo se muestra al revelar (la frase en el
   // frente actuaba de muleta: se recordaba la tarjeta, no la palabra)
   example: string;
+  exampleIsMine?: boolean; // la frase es la escrita por el aprendiz
   direction: StudyDirection;
   revealed: boolean;
   onReveal: () => void;
@@ -22,7 +23,7 @@ const Pronunciation = ({ ipa }: { ipa: string }) => (
   </p>
 );
 
-export const StudyCard = ({ word, example, direction, revealed, onReveal, showRevealButton = true }: StudyCardProps) => {
+export const StudyCard = ({ word, example, exampleIsMine = false, direction, revealed, onReveal, showRevealButton = true }: StudyCardProps) => {
   const { selectedVoice, voices } = useVocabularyStorage();
   const ready = voices.length > 0 || isPiperVoice(selectedVoice);
   const [loading, setLoading] = useState(false);
@@ -56,9 +57,14 @@ export const StudyCard = ({ word, example, direction, revealed, onReveal, showRe
   const isEnToEs = direction === "en->es";
 
   const exampleBlock = example ? (
-    <div className="mt-3 flex items-center justify-center gap-2">
-      <p className="text-sm text-slate-500 leading-relaxed max-w-md">{example}</p>
-      {speakButton(example, "Escuchar ejemplo")}
+    <div className="mt-3">
+      {exampleIsMine && (
+        <p className="text-[10px] font-semibold tracking-widest uppercase text-review mb-0.5">✍ tu frase</p>
+      )}
+      <div className="flex items-center justify-center gap-2">
+        <p className="text-sm text-slate-500 leading-relaxed max-w-md">{example}</p>
+        {speakButton(example, "Escuchar ejemplo")}
+      </div>
     </div>
   ) : null;
 

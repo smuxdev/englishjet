@@ -100,3 +100,12 @@ English Jet es una aplicación web para aprender vocabulario en inglés:
 
 ### 20. Alta de palabra en modal (2026-08-24)
 - **Solución**: `src/components/Modal.tsx` genérico (overlay navy con blur, cierre por Escape/clic fuera/✕, scroll de fondo bloqueado, `role=dialog`). «+ Añadir palabra» abre el `WordForm` dentro del modal (prop `bare` para quitar el marco de tarjeta). La edición sigue inline en la tarjeta (contextual). Suite dev E2E en verde sin cambios
+
+### 21. Fijación de vocabulario: transferencia a la lectura real (2026-08-24)
+- **Problema**: el usuario reconocía la tarjeta pero no la palabra al leerla en un libro (memoria dependiente del contexto / especificidad de codificación)
+- **Solución** (4 mecanismos con base en la literatura — cloze, variabilidad de codificación, dificultades deseables, efecto de generación):
+  - **Frases rotadas**: `Word.examples` = hint + extras del sidecar `public/extra_examples.csv` (fetch tolerante a 404). `scripts/fetch-examples.mjs` (`npm run fetch:examples`, requiere curl+bunzip2) genera el sidecar desde el export inglés de Tatoeba (CC-BY, ~2M frases, stream): 1948 frases, 531/638 términos, máx 4/término, 30-90 chars, sin duplicar el hint. `buildSession` fija una frase aleatoria por tarjeta (`SessionCard.example`) → contexto distinto entre sesiones
+  - **Frente sin muleta**: en sesión EN→ES el frente muestra solo palabra+IPA; la frase (rotada) aparece al revelar como refuerzo en ambas direcciones (la frase en el frente hacía de pista y se memorizaba la tarjeta)
+  - **Modo Contexto (cloze)**: `StudyMode` gana "cloze" («Contexto»). `services/cloze.ts`: `findOccurrence(sentence, term)` con flexiones (-s/-es/-ed/-ing/-ies, e-drop), candidatos por longitud desc, límites `(?<![A-Za-z'])`, multi-palabra con primera palabra flexionada; enmascara TODAS las ocurrencias y devuelve `parts` para resaltar al revelar. Corrección dual (lema o forma superficial, mejor verdict). Sin ocurrencia → la tarjeta cae a escritura ES→EN. Ignora dirección; autoplay pronuncia la frase completa al revelar
+  - **Frase propia**: `data/mySentences.ts` (`vocabulary_my_sentences`, validación: ≥10 chars y contener el término vía `findOccurrence`). Input por fallada en el resumen final (único punto de UI, no rompe el ritmo); la frase entra en el pool de rotación con etiqueta «✍ tu frase»
+- E2E ampliada a 15 checks (frente sin muleta, cloze con hueco+pista+resalte, frase propia validada y persistida)

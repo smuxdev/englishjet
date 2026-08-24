@@ -7,6 +7,7 @@ import {
 } from "../hooks/vocabularyContext";
 import { checkAnswer, type Verdict } from "../services/answer";
 import { findOccurrence, type ClozeMatch } from "../services/cloze";
+import { readMySentences, saveMySentence, validateMySentence } from "../data/mySentences";
 import { speakPiper, speakNative, isPiperVoice } from "../services/piper";
 import { StudyCard } from "./StudyCard";
 
@@ -19,27 +20,83 @@ interface SessionCard {
   // Modo Contexto: hueco localizado en la frase; null = sin ocurrencia en
   // ninguna frase → la tarjeta cae al comportamiento de escritura ES→EN
   cloze: ClozeMatch | null;
+  exampleIsMine: boolean; // la frase rotada es la escrita por el aprendiz
 }
 
-function pickExample(word: Word): string {
-  if (word.examples.length === 0) return "";
-  return word.examples[Math.floor(Math.random() * word.examples.length)];
-}
-
-function makeCard(word: Word, mode: StudyMode): SessionCard {
+function makeCard(word: Word, mode: StudyMode, mySentence: string | undefined): SessionCard {
+  // La frase propia entra en el pool de rotación (efecto de generación)
+  const pool = mySentence ? [...word.examples, mySentence] : word.examples;
   if (mode === "cloze") {
-    for (const example of shuffle(word.examples)) {
+    for (const example of shuffle(pool)) {
       const match = findOccurrence(example, word.englishTerm);
-      if (match) return { word, failedOnce: false, example, cloze: match };
+      if (match) {
+        return { word, failedOnce: false, example, cloze: match, exampleIsMine: example === mySentence };
+      }
     }
   }
-  return { word, failedOnce: false, example: pickExample(word), cloze: null };
+  const example = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : "";
+  return { word, failedOnce: false, example, cloze: null, exampleIsMine: example !== "" && example === mySentence };
 }
 
 const VERDICT_RANK: Record<Verdict, number> = { fail: 0, almost: 1, ok: 2 };
 function bestVerdict(a: Verdict, b: Verdict): Verdict {
   return VERDICT_RANK[a] >= VERDICT_RANK[b] ? a : b;
 }
+
+// Efecto de generación: en el resumen, cada fallada invita a escribir tu
+// propia frase con la palabra; entra en el pool de rotación de futuros repasos.
+const MySentenceRow = ({ word }: { word: Word }) => {
+  const [value, setValue] = useState(() => readMySentences()[word.id] ?? "");
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = (e: FormEvent) => {
+    e.preventDefault();
+    const problem = validateMySentence(word.englishTerm, value);
+    if (problem) {
+      setError(problem);
+      setSaved(false);
+      return;
+    }
+    saveMySentence(word.id, value);
+    setError(null);
+    setSaved(true);
+  };
+
+  return (
+    <div className="px-4 py-2.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-sm font-semibold text-white">{word.englishTerm}</span>
+        <span className="text-sm text-slate-300 text-right">{word.spanishTranslation}</span>
+      </div>
+      <form onSubmit={handleSave} className="mt-1.5 flex gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setSaved(false);
+            setError(null);
+          }}
+          placeholder={`✍ Tu frase con «${word.englishTerm}»...`}
+          className="flex-1 rounded-lg bg-white/10 border border-white/10 px-3 py-1.5 text-sm text-white placeholder-slate-400 focus:border-white/40 outline-none"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <button
+          type="submit"
+          disabled={!value.trim()}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40 ${
+            saved ? "bg-mastered text-white" : "bg-white/15 text-white hover:bg-white/25"
+          }`}
+        >
+          {saved ? "✓ Guardada" : "Guardar"}
+        </button>
+      </form>
+      {error && <p className="mt-1 text-xs text-red-300 text-left">{error}</p>}
+    </div>
+  );
+};
 
 interface SessionState {
   queue: SessionCard[]; // queue[0] = tarjeta actual; falladas se reencolan al final
@@ -73,8 +130,9 @@ function buildSession(
   const reviews = shuffle(words.filter((w) => w.box > 0));
   const fresh = shuffle(words.filter((w) => w.box === 0));
   const deck = shuffle([...reviews, ...fresh].slice(0, size));
+  const mine = readMySentences();
   return {
-    queue: deck.map((word) => makeCard(word, mode)),
+    queue: deck.map((word) => makeCard(word, mode, mine[word.id])),
     direction,
     mode,
     revealed: false,
@@ -231,14 +289,16 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
           </p>
 
           {session.failedWords.length > 0 && (
-            <div className="relative mb-6 text-left bg-white/10 rounded-lg divide-y divide-white/10">
+            <div className="relative mb-2 text-left bg-white/10 rounded-lg divide-y divide-white/10">
               {session.failedWords.map((w) => (
-                <div key={w.id} className="px-4 py-2 flex items-baseline justify-between gap-3">
-                  <span className="text-sm font-semibold text-white">{w.englishTerm}</span>
-                  <span className="text-sm text-slate-300 text-right">{w.spanishTranslation}</span>
-                </div>
+                <MySentenceRow key={w.id} word={w} />
               ))}
             </div>
+          )}
+          {session.failedWords.length > 0 && (
+            <p className="relative text-xs text-slate-400 mb-6">
+              Escribir tu propia frase con la palabra ayuda a fijarla (efecto de generación); se mostrará en tus repasos.
+            </p>
           )}
 
           <div className="relative flex flex-col sm:flex-row justify-center gap-2">
@@ -363,6 +423,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
           key={current.word.id}
           word={current.word}
           example={current.example}
+          exampleIsMine={current.exampleIsMine}
           direction={session.mode === "cloze" ? "es->en" : session.direction}
           revealed={session.revealed}
           onReveal={reveal}
