@@ -113,3 +113,7 @@ English Jet es una aplicación web para aprender vocabulario en inglés:
 ### 22. Ayuda + sugerencia de ejemplos Tatoeba en el formulario (2026-08-24)
 - **Ayuda**: botón «💡 Ayuda» en la cabecera → modal con guía sencilla de todas las capacidades (`src/components/Help.tsx`). Cazó un bug real: la cabecera sticky tiene `backdrop-blur` y un ancestro con `backdrop-filter` es containing block de los `fixed` → el modal quedaba confinado al header; `Modal.tsx` ahora monta en **portal a document.body** (`createPortal`)
 - **Sugerir ejemplo**: en WordForm (alta/edición), botón «Sugerir» junto a Ejemplo → `GET /api/suggest-examples?term=` (proxy en `vite.config.ts` a la API pública de Tatoeba, solo dev, timeout 10s, filtro 20-110 chars y dedupe) → el cliente filtra con `findOccurrence` (flexiones) y ofrece hasta 4 frases clicables que rellenan el campo. aria-labels distinguen los dos «Sugerir» (ejemplo/IPA). E2E: check 2a en la suite dev
+
+### 23. «No lo sé» en Escribir y Contexto (2026-08-24)
+- **Problema**: en los modos con input no había forma de rendirse; obligaba a teclear basura para ver la respuesta
+- **Solución**: botón «No lo sé» junto a «Comprobar» (`giveUp` en StudySession): revela con verdict fail e input vacío — panel «✗ No lo sabías — la respuesta era X» (sin el «escribiste» tachado). Cuenta como fallo (caja 1, reencolada). E2E: check 14 usa «No lo sé» en Contexto

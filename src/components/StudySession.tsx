@@ -207,6 +207,15 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
     });
   };
 
+  // «No lo sé»: revela la respuesta y cuenta como fallo (baja a caja 1 y se
+  // reencola), igual que una respuesta incorrecta pero sin teclear basura.
+  const giveUp = () => {
+    if (!current || session.revealed) return;
+    canAnswer.current = true;
+    setDraft("");
+    setSession((s) => ({ ...s, revealed: true, typed: { input: "", verdict: "fail" } }));
+  };
+
   // En escritura la respuesta la corrige checkAnswer; el input hace de submit
   // (antes de revelar) y de «Continuar» (después, Enter con el foco dentro).
   const handleTypedSubmit = (e: FormEvent) => {
@@ -454,9 +463,17 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
                 spellCheck={false}
               />
               <button
+                type="button"
+                onClick={giveUp}
+                className="rounded-xl border border-slate-300 bg-white px-3 sm:px-4 py-3 text-sm font-medium text-body transition-colors hover:border-red-300 hover:text-red-700 hover:bg-red-50 whitespace-nowrap"
+                title="Ver la respuesta (cuenta como fallo)"
+              >
+                No lo sé
+              </button>
+              <button
                 type="submit"
                 disabled={!draft.trim()}
-                className="rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-dark disabled:opacity-40"
+                className="rounded-xl bg-accent px-4 sm:px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-dark disabled:opacity-40 whitespace-nowrap"
               >
                 Comprobar <span className="font-normal opacity-70 hidden sm:inline">· ⏎</span>
               </button>
@@ -473,11 +490,16 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
                     <span className="font-semibold">≈ Casi</span> — escribiste «{session.typed.input}»; la forma correcta es{" "}
                     <span className="font-semibold">{typedAnswerText}</span>
                   </div>
-                ) : (
+                ) : session.typed.input ? (
                   <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                     <span className="font-semibold">✗ Incorrecto</span> — escribiste{" "}
                     <span className="line-through">{session.typed.input}</span>; la respuesta era{" "}
                     <span className="font-semibold">{typedAnswerText}</span>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <span className="font-semibold">✗ No lo sabías</span> — la respuesta era{" "}
+                    <span className="font-semibold">{typedAnswerText}</span>. La verás de nuevo en esta sesión.
                   </div>
                 )}
                 <button
