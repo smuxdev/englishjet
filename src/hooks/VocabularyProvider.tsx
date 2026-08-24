@@ -19,6 +19,7 @@ import {
   SESSION_SIZES,
   type VocabularyState,
   type StudyDirection,
+  type StudyMode,
   type StudyStats,
   type WordEdit,
 } from "./vocabularyContext";
@@ -26,6 +27,7 @@ import {
 const PAGE_SIZE = 10;
 const FILTER_VALUES: readonly FilterStatus[] = ["all", "learned", "pending"];
 const DIRECTION_VALUES: readonly StudyDirection[] = ["en->es", "es->en"];
+const MODE_VALUES: readonly StudyMode[] = ["cards", "typing"];
 
 const DEFAULT_SESSION_SIZE = 20;
 
@@ -60,6 +62,9 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     readStored("vocabulary_direction", DIRECTION_VALUES, "en->es")
   );
   const [sessionSize, setSessionSizeState] = useState<number>(readSessionSize);
+  const [studyMode, setStudyModeState] = useState<StudyMode>(() =>
+    readStored("vocabulary_study_mode", MODE_VALUES, "cards")
+  );
   const [canEdit, setCanEdit] = useState(false);
   const [activity, setActivity] = useState<ActivityMap>(readActivity);
 
@@ -111,6 +116,11 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   const setSessionSize = useCallback((size: number) => {
     setSessionSizeState(size);
     localStorage.setItem("vocabulary_session_size", String(size));
+  }, []);
+
+  const setStudyMode = useCallback((mode: StudyMode) => {
+    setStudyModeState(mode);
+    localStorage.setItem("vocabulary_study_mode", mode);
   }, []);
 
   const setFilter = useCallback((next: FilterStatus) => {
@@ -348,6 +358,8 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
         voices,
         studyDirection,
         setStudyDirection,
+        studyMode,
+        setStudyMode,
         stats,
       }}
     >

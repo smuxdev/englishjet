@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import type { Word, FilterStatus } from "../types/vocabulary";
 
 export type StudyDirection = "en->es" | "es->en";
+export type StudyMode = "cards" | "typing";
 
 export const SESSION_SIZES = [10, 20, 30, 50] as const;
 
@@ -56,6 +57,8 @@ export interface VocabularyContextType {
   voices: SpeechSynthesisVoice[];
   studyDirection: StudyDirection;
   setStudyDirection: (dir: StudyDirection) => void;
+  studyMode: StudyMode;
+  setStudyMode: (mode: StudyMode) => void;
   stats: StudyStats;
 }
 

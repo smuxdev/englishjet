@@ -1,6 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Word } from "../types/vocabulary";
-import { useVocabularyStorage, type StudyDirection } from "../hooks/vocabularyContext";
+import {
+  useVocabularyStorage,
+  type StudyDirection,
+  type StudyMode,
+} from "../hooks/vocabularyContext";
+import { checkAnswer, type Verdict } from "../services/answer";
 import { StudyCard } from "./StudyCard";
 
 interface SessionCard {
@@ -11,7 +16,9 @@ interface SessionCard {
 interface SessionState {
   queue: SessionCard[]; // queue[0] = tarjeta actual; falladas se reencolan al final
   direction: StudyDirection; // fijada al iniciar la sesión
+  mode: StudyMode; // fijado al iniciar, como la dirección
   revealed: boolean;
+  typed: { input: string; verdict: Verdict } | null; // solo en modo escritura
   total: number;
   firstTry: number;
   failedWords: Word[];
@@ -26,7 +33,12 @@ function shuffle<T>(items: T[]): T[] {
   return arr;
 }
 
-function buildSession(words: Word[], direction: StudyDirection, size: number): SessionState {
+function buildSession(
+  words: Word[],
+  direction: StudyDirection,
+  mode: StudyMode,
+  size: number
+): SessionState {
   // Prioridad a las revisiones vencidas (caja > 0) sobre las nuevas, para que
   // el backlog de repaso no se ahogue entre palabras nuevas; el orden final
   // se baraja para mezclarlas dentro de la sesión.
@@ -36,7 +48,9 @@ function buildSession(words: Word[], direction: StudyDirection, size: number): S
   return {
     queue: deck.map((word) => ({ word, failedOnce: false })),
     direction,
+    mode,
     revealed: false,
+    typed: null,
     total: deck.length,
     firstTry: 0,
     failedWords: [],
@@ -44,10 +58,11 @@ function buildSession(words: Word[], direction: StudyDirection, size: number): S
 }
 
 export const StudySession = ({ onExit }: { onExit: () => void }) => {
-  const { dueWords, reviewWord, studyDirection, sessionSize } = useVocabularyStorage();
+  const { dueWords, reviewWord, studyDirection, studyMode, sessionSize } = useVocabularyStorage();
   const [session, setSession] = useState<SessionState>(() =>
-    buildSession(dueWords, studyDirection, sessionSize)
+    buildSession(dueWords, studyDirection, studyMode, sessionSize)
   );
+  const [draft, setDraft] = useState("");
 
   const current = session.queue[0];
   const remainingUnique = new Set(session.queue.map((c) => c.word.id)).size;
@@ -68,6 +83,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
     const card = session.queue[0];
     if (!card || !session.revealed || !canAnswer.current) return;
     canAnswer.current = false;
+    setDraft("");
     // Transición Leitner una sola vez por palabra y sesión: acierto a la
     // primera sube de caja; el primer fallo baja a caja 1. Las reencoladas
     // que luego aciertan ya transicionaron con su fallo.
@@ -80,6 +96,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
           ...s,
           queue: rest,
           revealed: false,
+          typed: null,
           firstTry: head.failedOnce ? s.firstTry : s.firstTry + 1,
         };
       }
@@ -88,9 +105,27 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
         ...s,
         queue: [...rest, { ...head, failedOnce: true }],
         revealed: false,
+        typed: null,
         failedWords: alreadyFailed ? s.failedWords : [...s.failedWords, head.word],
       };
     });
+  };
+
+  // En escritura la respuesta la corrige checkAnswer; el input hace de submit
+  // (antes de revelar) y de «Continuar» (después, Enter con el foco dentro).
+  const handleTypedSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!current) return;
+    if (session.revealed) {
+      if (session.typed) answer(session.typed.verdict !== "fail");
+      return;
+    }
+    if (!draft.trim()) return;
+    const target =
+      session.direction === "en->es" ? current.word.spanishTranslation : current.word.englishTerm;
+    const verdict = checkAnswer(draft, target);
+    canAnswer.current = true;
+    setSession((s) => ({ ...s, revealed: true, typed: { input: draft, verdict } }));
   };
 
   useEffect(() => {
@@ -98,13 +133,18 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
-      if (e.key === " ") {
-        e.preventDefault(); // evita scroll y activación del botón enfocado
-        reveal();
-      } else if (e.key === "1") {
-        answer(false);
-      } else if (e.key === "2") {
-        answer(true);
+      if (session.mode === "cards") {
+        if (e.key === " ") {
+          e.preventDefault(); // evita scroll y activación del botón enfocado
+          reveal();
+        } else if (e.key === "1") {
+          answer(false);
+        } else if (e.key === "2") {
+          answer(true);
+        }
+      } else if (e.key === "Enter" && session.revealed && session.typed) {
+        // Continuar con el foco fuera del input (p.ej. tras clic en Comprobar)
+        answer(session.typed.verdict !== "fail");
       }
     };
     window.addEventListener("keydown", onKey);
@@ -135,7 +175,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
           <div className="flex flex-col sm:flex-row justify-center gap-2">
             {session.failedWords.length > 0 && (
               <button
-                onClick={() => setSession((s) => buildSession(s.failedWords, s.direction, sessionSize))}
+                onClick={() => setSession((s) => buildSession(s.failedWords, s.direction, s.mode, sessionSize))}
                 className="rounded-lg bg-[#751200] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05]"
               >
                 Repetir falladas ({session.failedWords.length})
@@ -143,7 +183,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
             )}
             {dueWords.length > 0 && (
               <button
-                onClick={() => setSession(buildSession(dueWords, studyDirection, sessionSize))}
+                onClick={() => setSession(buildSession(dueWords, studyDirection, studyMode, sessionSize))}
                 className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
               >
                 Otra ronda ({Math.min(dueWords.length, sessionSize)})
@@ -167,7 +207,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-4 sm:px-5 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-slate-700">
-            Sesión de estudio <span className="text-slate-400 font-normal">· {session.direction === "en->es" ? "EN → ES" : "ES → EN"}</span>
+            Sesión de estudio <span className="text-slate-400 font-normal">· {session.direction === "en->es" ? "EN → ES" : "ES → EN"}{session.mode === "typing" ? " · Escribir" : ""}</span>
           </span>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-500">
@@ -195,23 +235,84 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
         direction={session.direction}
         revealed={session.revealed}
         onReveal={reveal}
+        showRevealButton={session.mode === "cards"}
       />
 
-      {session.revealed && (
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => answer(false)}
-            className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
-          >
-            ✗ Aún no <span className="font-normal text-amber-600 hidden sm:inline">· 1</span>
-          </button>
-          <button
-            onClick={() => answer(true)}
-            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
-          >
-            ✓ La sabía <span className="font-normal text-emerald-600 hidden sm:inline">· 2</span>
-          </button>
-        </div>
+      {session.mode === "typing" ? (
+        <form onSubmit={handleTypedSubmit} className="space-y-3">
+          {!session.revealed ? (
+            <div className="flex gap-2">
+              <input
+                key={current.word.id}
+                autoFocus
+                type="text"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={session.direction === "en->es" ? "Escribe la traducción en español..." : "Escribe la palabra en inglés..."}
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-[#751200] focus:ring-1 focus:ring-[#751200] outline-none"
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+              />
+              <button
+                type="submit"
+                disabled={!draft.trim()}
+                className="rounded-xl bg-[#751200] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#8f1a05] disabled:opacity-40"
+              >
+                Comprobar <span className="font-normal opacity-70 hidden sm:inline">· ⏎</span>
+              </button>
+            </div>
+          ) : (
+            session.typed && (
+              <div className="space-y-3">
+                {session.typed.verdict === "ok" ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                    ✓ Correcto
+                  </div>
+                ) : session.typed.verdict === "almost" ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <span className="font-semibold">≈ Casi</span> — escribiste «{session.typed.input}»; la forma correcta es{" "}
+                    <span className="font-semibold">
+                      {session.direction === "en->es" ? current.word.spanishTranslation : current.word.englishTerm}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <span className="font-semibold">✗ Incorrecto</span> — escribiste{" "}
+                    <span className="line-through">{session.typed.input}</span>; la respuesta era{" "}
+                    <span className="font-semibold">
+                      {session.direction === "en->es" ? current.word.spanishTranslation : current.word.englishTerm}
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  autoFocus
+                  className="w-full rounded-xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
+                >
+                  Continuar <span className="font-normal opacity-70 hidden sm:inline">· ⏎</span>
+                </button>
+              </div>
+            )
+          )}
+        </form>
+      ) : (
+        session.revealed && (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => answer(false)}
+              className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+            >
+              ✗ Aún no <span className="font-normal text-amber-600 hidden sm:inline">· 1</span>
+            </button>
+            <button
+              onClick={() => answer(true)}
+              className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
+            >
+              ✓ La sabía <span className="font-normal text-emerald-600 hidden sm:inline">· 2</span>
+            </button>
+          </div>
+        )
       )}
     </section>
   );

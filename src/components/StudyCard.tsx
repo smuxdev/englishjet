@@ -9,6 +9,8 @@ interface StudyCardProps {
   direction: StudyDirection;
   revealed: boolean;
   onReveal: () => void;
+  // En modo escritura el reveal lo dispara el submit del input, no un botón
+  showRevealButton?: boolean;
 }
 
 const Pronunciation = ({ ipa }: { ipa: string }) => (
@@ -17,7 +19,7 @@ const Pronunciation = ({ ipa }: { ipa: string }) => (
   </p>
 );
 
-export const StudyCard = ({ word, direction, revealed, onReveal }: StudyCardProps) => {
+export const StudyCard = ({ word, direction, revealed, onReveal, showRevealButton = true }: StudyCardProps) => {
   const { selectedVoice, voices } = useVocabularyStorage();
   const ready = voices.length > 0 || isPiperVoice(selectedVoice);
   const [loading, setLoading] = useState(false);
@@ -74,6 +76,9 @@ export const StudyCard = ({ word, direction, revealed, onReveal }: StudyCardProp
       {/* ===== REVERSO ===== */}
       <div className="mt-8 pt-6 border-t border-slate-100 min-h-[7rem] flex flex-col items-center justify-center">
         {!revealed ? (
+          !showRevealButton ? (
+            <p className="text-sm text-slate-300 select-none" aria-hidden="true">? ? ?</p>
+          ) : (
           <button
             onClick={onReveal}
             className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-6 py-3 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 hover:border-slate-400 transition-colors"
@@ -85,6 +90,7 @@ export const StudyCard = ({ word, direction, revealed, onReveal }: StudyCardProp
             {isEnToEs ? "Mostrar español" : "Mostrar inglés"}
             <span className="text-slate-400 hidden sm:inline">· Espacio</span>
           </button>
+          )
         ) : isEnToEs ? (
           <p className="text-xl font-semibold text-[#751200]">{word.spanishTranslation}</p>
         ) : (

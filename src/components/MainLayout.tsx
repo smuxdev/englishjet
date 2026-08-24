@@ -5,6 +5,7 @@ import { FilterTabs } from "./FilterTabs";
 import { WordCard } from "./WordCard";
 import { VoiceSelector } from "./VoiceSelector";
 import { StudyDirectionToggle } from "./StudyDirectionToggle";
+import { StudyModeToggle } from "./StudyModeToggle";
 import { StudySession } from "./StudySession";
 import { WordForm } from "./WordForm";
 import { StatsPanel } from "./StatsPanel";
@@ -100,7 +101,10 @@ export const MainLayout = () => {
                 className="w-full rounded-lg border border-slate-300 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-[#751200] focus:bg-white focus:ring-1 focus:ring-[#751200] outline-none"
               />
             </div>
-            <StudyDirectionToggle />
+            <div className="flex items-center gap-2">
+              <StudyDirectionToggle />
+              <StudyModeToggle />
+            </div>
           </div>
           <div className="flex items-center justify-between gap-3">
             <FilterTabs filter={filter} onFilterChange={setFilter} />
