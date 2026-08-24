@@ -60,10 +60,12 @@ export const StudyCard = ({ word, direction, revealed, onReveal }: StudyCardProp
             {speakButton(word.englishTerm, "Escuchar palabra")}
           </div>
           {word.pronunciation && <Pronunciation ipa={word.pronunciation} />}
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <p className="text-sm text-slate-500 leading-relaxed max-w-md">{word.exampleSentence}</p>
-            {speakButton(word.exampleSentence, "Escuchar ejemplo")}
-          </div>
+          {word.exampleSentence && (
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <p className="text-sm text-slate-500 leading-relaxed max-w-md">{word.exampleSentence}</p>
+              {speakButton(word.exampleSentence, "Escuchar ejemplo")}
+            </div>
+          )}
         </>
       ) : (
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">{word.spanishTranslation}</h2>
@@ -92,10 +94,12 @@ export const StudyCard = ({ word, direction, revealed, onReveal }: StudyCardProp
               {speakButton(word.englishTerm, "Escuchar palabra")}
             </div>
             {word.pronunciation && <Pronunciation ipa={word.pronunciation} />}
-            <div className="mt-3 flex items-center justify-center gap-2">
-              <p className="text-sm text-slate-500 leading-relaxed max-w-md">{word.exampleSentence}</p>
-              {speakButton(word.exampleSentence, "Escuchar ejemplo")}
-            </div>
+            {word.exampleSentence && (
+              <div className="mt-3 flex items-center justify-center gap-2">
+                <p className="text-sm text-slate-500 leading-relaxed max-w-md">{word.exampleSentence}</p>
+                {speakButton(word.exampleSentence, "Escuchar ejemplo")}
+              </div>
+            )}
           </>
         )}
       </div>

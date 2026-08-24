@@ -5,6 +5,12 @@ export type StudyDirection = "en->es" | "es->en";
 
 export const SESSION_SIZES = [10, 20, 30, 50] as const;
 
+export interface WordEdit {
+  englishTerm: string;
+  spanishTranslation: string;
+  exampleSentence: string;
+}
+
 export interface VocabularyState {
   learnedCount: number;
   inProgressCount: number; // cajas 1..4 (en repaso)
@@ -27,6 +33,9 @@ export interface VocabularyContextType {
   setSearchTerm: (term: string) => void;
   toggleLearned: (id: string) => void;
   reviewWord: (id: string, correct: boolean) => void;
+  canEdit: boolean; // hay endpoint de escritura del CSV (solo `npm run dev`)
+  editWord: (id: string, fields: WordEdit) => Promise<string | null>; // null = ok, string = error
+
   goToPage: (page: number) => void;
   sessionSize: number;
   setSessionSize: (size: number) => void;

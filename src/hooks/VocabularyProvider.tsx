@@ -12,11 +12,13 @@ import {
   type WordProgress,
 } from "../data/words";
 import { PIPER_VOICE_ID } from "../services/piper";
+import { probeCsvEditable, saveCsvToServer } from "../services/csvStore";
 import {
   VocabularyContext,
   SESSION_SIZES,
   type VocabularyState,
   type StudyDirection,
+  type WordEdit,
 } from "./vocabularyContext";
 
 const PAGE_SIZE = 10;
@@ -56,6 +58,17 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     readStored("vocabulary_direction", DIRECTION_VALUES, "en->es")
   );
   const [sessionSize, setSessionSizeState] = useState<number>(readSessionSize);
+  const [canEdit, setCanEdit] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    probeCsvEditable().then((ok) => {
+      if (!cancelled) setCanEdit(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -181,6 +194,40 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  // Edición con write-through al CSV: primero se escribe el fichero, y solo si
+  // el servidor confirma se actualiza la memoria (sin estados intermedios que
+  // revertir). Al cambiar el término inglés, el id pasa a ser el nuevo front y
+  // el efecto de persistencia re-escribe el progreso bajo la nueva clave; la
+  // IPA se descarta porque pertenece al término anterior.
+  const editWord = useCallback(
+    async (id: string, fields: WordEdit): Promise<string | null> => {
+      const en = fields.englishTerm.trim();
+      const es = fields.spanishTranslation.trim();
+      const example = fields.exampleSentence.trim();
+      if (!en || !es) return "El término en inglés y la traducción son obligatorios";
+      if (allWords.some((w) => w.id !== id && w.englishTerm.toLowerCase() === en.toLowerCase())) {
+        return "Ya existe otra palabra con ese término en inglés";
+      }
+      const updated = allWords.map((w) =>
+        w.id === id
+          ? {
+              ...w,
+              id: en,
+              englishTerm: en,
+              spanishTranslation: es,
+              exampleSentence: example,
+              pronunciation: en === w.englishTerm ? w.pronunciation : undefined,
+            }
+          : w
+      );
+      const ok = await saveCsvToServer(updated);
+      if (!ok) return "No se pudo escribir el CSV (¿la app no corre bajo npm run dev?)";
+      setAllWords(updated);
+      return null;
+    },
+    [allWords]
+  );
+
   // Persistir progreso fuera del updater (StrictMode ejecuta los updaters dos veces).
   useEffect(() => {
     if (!loading && !loadError) saveProgress(allWords);
@@ -200,6 +247,8 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
         setSearchTerm,
         toggleLearned,
         reviewWord,
+        canEdit,
+        editWord,
         goToPage,
         sessionSize,
         setSessionSize,

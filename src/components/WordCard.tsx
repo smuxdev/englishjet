@@ -22,11 +22,16 @@ const BoxDots = ({ box }: { box: number }) => (
 // El reveal se resetea al cambiar de palabra o dirección vía la key del
 // componente en MainLayout (`${word.id}-${studyDirection}`), no con efectos.
 export const WordCard = ({ word }: { word: Word }) => {
-  const { toggleLearned, selectedVoice, voices, studyDirection } = useVocabularyStorage();
+  const { toggleLearned, selectedVoice, voices, studyDirection, canEdit, editWord } =
+    useVocabularyStorage();
   const isLearned = word.learned;
   const ready = voices.length > 0 || isPiperVoice(selectedVoice);
   const [loading, setLoading] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ englishTerm: "", spanishTranslation: "", exampleSentence: "" });
 
   const handleSpeak = async (text: string) => {
     if (isPiperVoice(selectedVoice)) {
@@ -37,7 +42,94 @@ export const WordCard = ({ word }: { word: Word }) => {
     }
   };
 
+  const startEdit = () => {
+    setDraft({
+      englishTerm: word.englishTerm,
+      spanishTranslation: word.spanishTranslation,
+      exampleSentence: word.exampleSentence,
+    });
+    setEditError(null);
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setEditError(null);
+    const error = await editWord(word.id, draft);
+    setSaving(false);
+    if (error) setEditError(error);
+    else setEditing(false);
+  };
+
   const isEnToEs = studyDirection === "en->es";
+
+  const EditButton = canEdit ? (
+    <button
+      onClick={startEdit}
+      className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-slate-700 hover:text-white transition-all duration-200"
+      aria-label="Editar palabra"
+      title="Editar"
+    >
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+      </svg>
+    </button>
+  ) : null;
+
+  if (editing) {
+    const inputClass =
+      "w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-[#751200] focus:bg-white focus:ring-1 focus:ring-[#751200] outline-none";
+    return (
+      <div className="rounded-xl shadow-sm border border-[#751200]/40 bg-white">
+        <div className="p-5 space-y-3">
+          <label className="block">
+            <span className="text-xs font-medium text-slate-500">Inglés</span>
+            <input
+              type="text"
+              value={draft.englishTerm}
+              onChange={(e) => setDraft((d) => ({ ...d, englishTerm: e.target.value }))}
+              className={`${inputClass} font-semibold mt-1`}
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-slate-500">Español</span>
+            <input
+              type="text"
+              value={draft.spanishTranslation}
+              onChange={(e) => setDraft((d) => ({ ...d, spanishTranslation: e.target.value }))}
+              className={`${inputClass} mt-1`}
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-slate-500">Ejemplo</span>
+            <textarea
+              rows={3}
+              value={draft.exampleSentence}
+              onChange={(e) => setDraft((d) => ({ ...d, exampleSentence: e.target.value }))}
+              className={`${inputClass} mt-1 resize-none`}
+            />
+          </label>
+          {editError && <p className="text-xs text-red-600">{editError}</p>}
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-40"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-lg bg-[#751200] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#8f1a05] disabled:opacity-40"
+            >
+              {saving ? "Guardando…" : "Guardar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const SpeakerIcon = loading ? (
     <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3"/><path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>
@@ -75,6 +167,7 @@ export const WordCard = ({ word }: { word: Word }) => {
               >
                 {SpeakerIcon}
               </button>
+              {EditButton}
               <button
                 onClick={() => toggleLearned(word.id)}
                 className={`shrink-0 p-1.5 rounded-lg transition-all duration-200 ${isLearned ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-[#751200]"}`}
@@ -87,15 +180,19 @@ export const WordCard = ({ word }: { word: Word }) => {
             </div>
 
             <div className="flex items-start gap-2 mb-4">
-              <p className="text-sm text-slate-500 leading-relaxed line-clamp-3 flex-1">{word.exampleSentence}</p>
-              <button
-                onClick={() => handleSpeak(word.exampleSentence)}
-                disabled={!ready || loading}
-                className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-[#751200] hover:text-white transition-all duration-200 disabled:opacity-30"
-                aria-label="Escuchar ejemplo"
-              >
-                {SpeakerIcon}
-              </button>
+              <p className={`text-sm leading-relaxed line-clamp-3 flex-1 ${word.exampleSentence ? "text-slate-500" : "text-slate-400 italic"}`}>
+                {word.exampleSentence || "Sin ejemplo"}
+              </p>
+              {word.exampleSentence && (
+                <button
+                  onClick={() => handleSpeak(word.exampleSentence)}
+                  disabled={!ready || loading}
+                  className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-[#751200] hover:text-white transition-all duration-200 disabled:opacity-30"
+                  aria-label="Escuchar ejemplo"
+                >
+                  {SpeakerIcon}
+                </button>
+              )}
             </div>
           </>
         ) : (
@@ -109,6 +206,7 @@ export const WordCard = ({ word }: { word: Word }) => {
                   <BoxDots box={word.box} />
                 </div>
               </div>
+              {EditButton}
               <button
                 onClick={() => toggleLearned(word.id)}
                 className={`shrink-0 p-1.5 rounded-lg transition-all duration-200 ${isLearned ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-[#751200]"}`}
@@ -181,15 +279,19 @@ export const WordCard = ({ word }: { word: Word }) => {
                     </button>
                   </div>
                   <div className="flex items-start gap-2">
-                    <p className="text-sm text-slate-500 leading-relaxed flex-1">{word.exampleSentence}</p>
-                    <button
-                      onClick={() => handleSpeak(word.exampleSentence)}
-                      disabled={!ready || loading}
-                      className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-[#751200] hover:text-white transition-all duration-200 disabled:opacity-30"
-                      aria-label="Escuchar ejemplo"
-                    >
-                      {SpeakerIcon}
-                    </button>
+                    <p className={`text-sm leading-relaxed flex-1 ${word.exampleSentence ? "text-slate-500" : "text-slate-400 italic"}`}>
+                      {word.exampleSentence || "Sin ejemplo"}
+                    </p>
+                    {word.exampleSentence && (
+                      <button
+                        onClick={() => handleSpeak(word.exampleSentence)}
+                        disabled={!ready || loading}
+                        className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-[#751200] hover:text-white transition-all duration-200 disabled:opacity-30"
+                        aria-label="Escuchar ejemplo"
+                      >
+                        {SpeakerIcon}
+                      </button>
+                    )}
                   </div>
                 </>
               )}

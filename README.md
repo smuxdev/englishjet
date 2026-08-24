@@ -25,6 +25,9 @@ npm run download:piper
 # 4. Desarrollo (con hot-reload)
 npm run dev
 # abre http://localhost:5173
+# Bajo `npm run dev` cada tarjeta tiene botón de editar (lápiz): los cambios
+# de término/traducción/ejemplo se escriben en public/duo_cards_en_export.csv.
+# En el build estático la edición se oculta (no hay servidor que escriba).
 
 # 5. Build de producción
 npm run build

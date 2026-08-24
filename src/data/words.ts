@@ -118,7 +118,9 @@ export function saveProgress(words: Word[]): void {
   try {
     const map: ProgressMap = {};
     for (const w of words) {
-      if (w.box > 0) map[w.englishTerm] = { box: w.box, due: w.due };
+      // Clave = id (el front del CSV; tras editar un término, editWord actualiza
+      // el id al nuevo front y el mapa se re-escribe entero → migración implícita).
+      if (w.box > 0) map[w.id] = { box: w.box, due: w.due };
     }
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(map));
   } catch (error) {
@@ -142,7 +144,9 @@ export async function initializeWords(): Promise<Word[]> {
     .map((row) => ({
       englishTerm: (row.front ?? "").trim(),
       spanishTranslation: (row.back ?? "").trim(),
-      exampleSentence: (row.hint ?? "").trim() || "No example provided",
+      // Sin fallback aquí: el CSV se regenera desde estos datos al editar, y un
+      // placeholder acabaría escrito en disco. El fallback es de presentación.
+      exampleSentence: (row.hint ?? "").trim(),
       dateAdded: (row.publishedAt ?? "").trim(),
       pronunciation: (row.pronunciation ?? "").trim() || undefined,
     }))
