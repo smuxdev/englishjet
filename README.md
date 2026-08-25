@@ -54,6 +54,12 @@ python3 -m http.server --directory dist 8000
 ```
 Abre `http://localhost:3000` (serve) o `http://localhost:8000` (python).
 
+## Despliegue en Vercel
+Importa el repo en [vercel.com/new](https://vercel.com/new) (framework Vite, autodetectado: `npm run build` → `dist/`). No hay nada que configurar; `vercel.json` solo añade headers de caché.
+
+- El modelo Piper (131 MB) no está en el repo ni cabe en Vercel (límite 100 MB/archivo): en producción `src/services/piper.ts` lo descarga de HuggingFace en runtime y lo persiste con Cache API, una sola vez por navegador.
+- La edición de palabras sigue siendo solo-dev (no hay servidor que escriba el CSV): tras editar en local, commit del CSV y push para publicar.
+
 ## Notas
 - **Modelo Piper** (`public/piper/en_US-libritts-high.onnx` 131 MB) está en `.gitignore` para no superar el límite de 100 MB de GitHub. Sin `git-lfs`, clonar no lo trae; ejecuta `npm run download:piper` en el otro PC. Si usas `git lfs`, haz `git lfs track "public/piper/*.onnx"` antes del push.
 - **CSV** `public/duo_cards_en_export.csv` (638 palabras con `pronunciation` IPA) se copia a `dist/` en el build.

@@ -10,12 +10,17 @@ export function isPiperVoice(name: string) {
   return name === PIPER_VOICE_ID;
 }
 
-// Modelo servido localmente desde public/piper/ (copiado a dist/piper/ en build).
-// Evita descarga de HuggingFace en cada carga. Archivos requeridos:
-// public/piper/en_US-libritts-high.onnx (131 MB, ver `npm run download:piper`) + .onnx.json
+// Modelo servido localmente desde public/piper/ (copiado a dist/piper/ en build)
+// si existe: public/piper/en_US-libritts-high.onnx (131 MB, ver `npm run download:piper`).
+// El .onnx está gitignorado (>100 MB), así que en despliegues construidos desde el
+// repo (Vercel) no existe: se cae a HuggingFace en runtime, con Cache API para
+// descargarlo una sola vez por navegador.
 // El resto (piper_phonemize.wasm/.data, onnx/*.wasm, worker/*.js) lo copia
 // vite-plugin-static-copy desde node_modules/piper-tts-web.
 const LOCAL_MODEL_BASE = "/piper/en_US-libritts-high";
+const HF_MODEL_BASE =
+  "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts/high/en_US-libritts-high";
+const VOICE_CACHE = "piper-voice-v1";
 
 class LocalVoiceProvider implements VoiceProvider {
   #cache = new Map<string, unknown>();
@@ -28,18 +33,39 @@ class LocalVoiceProvider implements VoiceProvider {
   }
 
   async fetch(_voice: string) {
-    const urls = [LOCAL_MODEL_BASE + ".onnx.json", LOCAL_MODEL_BASE + ".onnx"];
-    return Promise.all(urls.map((url) => this.#fetchUrl(url))); // [json, blobUrl]
+    return Promise.all([this.#fetchFile(".onnx.json"), this.#fetchFile(".onnx")]); // [json, blobUrl]
   }
 
-  async #fetchUrl(url: string) {
-    const cached = this.#cache.get(url);
+  async #fetchFile(ext: string) {
+    const cached = this.#cache.get(ext);
     if (cached !== undefined) return cached;
+    const res = (await this.#fetchLocal(LOCAL_MODEL_BASE + ext)) ?? (await this.#fetchRemote(HF_MODEL_BASE + ext));
+    const data = ext.endsWith(".json") ? await res.json() : URL.createObjectURL(await res.blob());
+    this.#cache.set(ext, data);
+    return data;
+  }
+
+  async #fetchLocal(url: string): Promise<Response | null> {
+    try {
+      const res = await fetch(url);
+      // Un rewrite SPA respondería index.html con 200: no es el modelo.
+      if (!res.ok || (res.headers.get("content-type") ?? "").includes("text/html")) return null;
+      return res;
+    } catch {
+      return null;
+    }
+  }
+
+  async #fetchRemote(url: string): Promise<Response> {
+    // Cache API en vez de confiar en la caché HTTP: 131 MB superan lo que los
+    // navegadores retienen de forma fiable para respuestas cross-origin.
+    const cache = typeof caches === "undefined" ? null : await caches.open(VOICE_CACHE).catch(() => null);
+    const hit = await cache?.match(url);
+    if (hit) return hit;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Could not fetch: ${url} (${res.status})`);
-    const data = url.endsWith(".json") ? await res.json() : URL.createObjectURL(await res.blob());
-    this.#cache.set(url, data);
-    return data;
+    cache?.put(url, res.clone()).catch(() => {});
+    return res;
   }
 }
 
