@@ -25,17 +25,23 @@ function authErrorMessage(error: unknown): string {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [backendAvailable, setBackendAvailable] = useState(true);
 
-  // En build estático sin backend (vite preview) /api/auth/me no existe:
-  // cualquier fallo se trata como "sin sesión" y la app queda en modo anónimo.
+  // Un 401 JSON limpio de /api/auth/me = hay backend pero no hay sesión →
+  // pantalla de bienvenida. Cualquier otra cosa (404, HTML del fallback SPA,
+  // fallo de red) = build estático sin functions → modo local sin cuentas.
   useEffect(() => {
     let cancelled = false;
     apiFetch<{ user: ApiUser }>("/api/auth/me")
       .then(({ user: u }) => {
         if (!cancelled) setUser(u);
       })
-      .catch(() => {
-        if (!cancelled) setUser(null);
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setUser(null);
+        const cleanUnauthorized =
+          error instanceof ApiError && error.status === 401 && error.code === "unauthorized";
+        setBackendAvailable(cleanUnauthorized);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -80,5 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, login, register, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, backendAvailable, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

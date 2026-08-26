@@ -4,6 +4,9 @@ import type { ApiUser } from "../services/api";
 export interface AuthContextType {
   user: ApiUser | null;
   loading: boolean; // resolviendo /api/auth/me al arrancar
+  // false = no hay API detrás (build estático servido sin functions): la app
+  // funciona en modo local y se oculta toda la UI de cuentas
+  backendAvailable: boolean;
   login: (email: string, password: string) => Promise<string | null>; // null = ok
   register: (email: string, password: string, code: string) => Promise<string | null>;
   logout: () => Promise<void>;

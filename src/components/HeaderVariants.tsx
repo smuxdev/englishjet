@@ -11,7 +11,7 @@ const baseWrap = "max-w-6xl mx-auto px-4 sm:px-6 py-8";
 export const AppHeader = () => {
   const [helpOpen, setHelpOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, backendAvailable } = useAuth();
 
   return (
     <header className="bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 shadow-sm sticky top-0 z-20">
@@ -41,30 +41,32 @@ export const AppHeader = () => {
               <span aria-hidden="true">💡</span>
               <span className="hidden sm:inline">Ayuda</span>
             </button>
-            {user ? (
-              <div className="flex items-center gap-2">
-                <span className="hidden md:inline max-w-40 truncate text-xs text-slate-500" title={user.email}>
-                  {user.email}
-                </span>
+            {/* Sin backend (build estático) no hay cuentas: se oculta todo */}
+            {backendAvailable &&
+              (user ? (
+                <div className="flex items-center gap-2">
+                  <span className="hidden md:inline max-w-40 truncate text-xs text-slate-500" title={user.email}>
+                    {user.email}
+                  </span>
+                  <button
+                    onClick={() => void logout()}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-body transition-colors hover:border-accent/50 hover:text-accent"
+                    aria-label="Cerrar sesión"
+                  >
+                    <span aria-hidden="true">👤</span>
+                    Salir
+                  </button>
+                </div>
+              ) : (
                 <button
-                  onClick={() => void logout()}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-body transition-colors hover:border-accent/50 hover:text-accent"
-                  aria-label="Cerrar sesión"
+                  onClick={() => setAuthOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-body transition-colors hover:border-primary/50 hover:text-primary"
+                  aria-label="Iniciar sesión o crear cuenta"
                 >
                   <span aria-hidden="true">👤</span>
-                  Salir
+                  <span className="hidden sm:inline">Entrar</span>
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAuthOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-body transition-colors hover:border-primary/50 hover:text-primary"
-                aria-label="Iniciar sesión o crear cuenta"
-              >
-                <span aria-hidden="true">👤</span>
-                <span className="hidden sm:inline">Entrar</span>
-              </button>
-            )}
+              ))}
           </div>
         </div>
       </div>
