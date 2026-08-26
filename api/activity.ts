@@ -1,7 +1,7 @@
-import { getDb } from "./_lib/db";
-import { HttpError, json, noContent, readJsonBody } from "./_lib/http";
-import { withHandler } from "./_lib/log";
-import { requireUser } from "./_lib/session";
+import { getDb } from "./_lib/db.js";
+import { HttpError, json, noContent, readJsonBody } from "./_lib/http.js";
+import { withHandler } from "./_lib/log.js";
+import { requireUser } from "./_lib/session.js";
 
 function parseDelta(v: unknown): number {
   if (typeof v !== "number" || !Number.isInteger(v) || v < -1 || v > 1) throw new HttpError(400, "bad_delta");

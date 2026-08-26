@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { InStatement } from "@libsql/client";
-import { getDb } from "../_lib/db";
-import { HttpError, json, readJsonBody } from "../_lib/http";
-import { withHandler } from "../_lib/log";
-import { requireUser } from "../_lib/session";
-import { LIMITS, optString, parseBox, parseDue, parseExamples, reqString } from "../_lib/cards";
+import { getDb } from "../_lib/db.js";
+import { HttpError, json, readJsonBody } from "../_lib/http.js";
+import { withHandler } from "../_lib/log.js";
+import { requireUser } from "../_lib/session.js";
+import { LIMITS, optString, parseBox, parseDue, parseExamples, reqString } from "../_lib/cards.js";
 
 const MAX_ITEMS = 5000;
 const MAX_BYTES = 2_000_000;

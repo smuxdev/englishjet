@@ -1,4 +1,4 @@
-import { HttpError, json } from "./http";
+import { HttpError, json } from "./http.js";
 
 type Handler = (req: Request) => Promise<Response>;
 

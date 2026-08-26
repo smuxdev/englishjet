@@ -1,6 +1,6 @@
-import { HttpError, json } from "./_lib/http";
-import { withHandler } from "./_lib/log";
-import { requireUser } from "./_lib/session";
+import { HttpError, json } from "./_lib/http.js";
+import { withHandler } from "./_lib/log.js";
+import { requireUser } from "./_lib/session.js";
 
 // Proxy a la API pública de Tatoeba (evita CORS), portado del middleware de
 // vite.config.ts. Requiere sesión: sin auth sería un proxy abierto.

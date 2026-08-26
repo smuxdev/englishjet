@@ -1,8 +1,8 @@
 import type { InValue } from "@libsql/client";
-import { getDb } from "../_lib/db";
-import { HttpError, json, noContent, pathParam, readJsonBody } from "../_lib/http";
-import { withHandler } from "../_lib/log";
-import { requireUser } from "../_lib/session";
+import { getDb } from "../_lib/db.js";
+import { HttpError, json, noContent, pathParam, readJsonBody } from "../_lib/http.js";
+import { withHandler } from "../_lib/log.js";
+import { requireUser } from "../_lib/session.js";
 import {
   CARD_COLUMNS,
   LIMITS,
@@ -13,7 +13,7 @@ import {
   parseExamples,
   reqString,
   rowToCard,
-} from "../_lib/cards";
+} from "../_lib/cards.js";
 
 const handler = withHandler("cards/:id", async (req) => {
   const user = await requireUser(req);

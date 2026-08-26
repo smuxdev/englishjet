@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { getDb } from "../_lib/db";
-import { HttpError, json, readJsonBody } from "../_lib/http";
-import { withHandler } from "../_lib/log";
-import { requireUser } from "../_lib/session";
+import { getDb } from "../_lib/db.js";
+import { HttpError, json, readJsonBody } from "../_lib/http.js";
+import { withHandler } from "../_lib/log.js";
+import { requireUser } from "../_lib/session.js";
 import {
   CARD_COLUMNS,
   LIMITS,
@@ -12,7 +12,7 @@ import {
   reqString,
   rowToCard,
   type CardDTO,
-} from "../_lib/cards";
+} from "../_lib/cards.js";
 
 const handler = withHandler("cards", async (req) => {
   const user = await requireUser(req);

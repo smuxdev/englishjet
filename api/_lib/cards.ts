@@ -1,5 +1,5 @@
 import type { Row } from "@libsql/client";
-import { HttpError } from "./http";
+import { HttpError } from "./http.js";
 
 // Límites de tamaño de los campos de tarjeta (validación de payloads).
 export const LIMITS = {

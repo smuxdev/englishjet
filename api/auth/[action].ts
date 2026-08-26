@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { getDb } from "../_lib/db";
-import { HttpError, json, noContent, pathParam, readJsonBody } from "../_lib/http";
-import { withHandler } from "../_lib/log";
-import { hashPassword, verifyPassword } from "../_lib/password";
-import { createSessionCookie, destroySessionCookie, getSessionUser } from "../_lib/session";
-import { isUniqueViolation } from "../_lib/cards";
+import { getDb } from "../_lib/db.js";
+import { HttpError, json, noContent, pathParam, readJsonBody } from "../_lib/http.js";
+import { withHandler } from "../_lib/log.js";
+import { hashPassword, verifyPassword } from "../_lib/password.js";
+import { createSessionCookie, destroySessionCookie, getSessionUser } from "../_lib/session.js";
+import { isUniqueViolation } from "../_lib/cards.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_FAILS = 10;

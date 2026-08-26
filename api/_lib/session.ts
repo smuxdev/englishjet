@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { getDb } from "./db";
-import { HttpError } from "./http";
+import { getDb } from "./db.js";
+import { HttpError } from "./http.js";
 
 const COOKIE = "ej_session";
 const SESSION_DAYS = 30;
