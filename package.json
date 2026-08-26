@@ -9,9 +9,11 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "fetch:examples": "node scripts/fetch-examples.mjs",
+    "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
     "download:piper": "mkdir -p public/piper && curl -L https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts/high/en_US-libritts-high.onnx -o public/piper/en_US-libritts-high.onnx && curl -L https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts/high/en_US-libritts-high.onnx.json -o public/piper/en_US-libritts-high.onnx.json && echo 'Piper model descargado en public/piper/'"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.4",
     "cmu-pronouncing-dictionary": "^3.0.0",
     "papaparse": "^5.6.0",
     "piper-tts-web": "^1.1.2",

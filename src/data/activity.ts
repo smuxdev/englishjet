@@ -29,40 +29,38 @@ export function readActivity(): ActivityMap {
   }
 }
 
-export function logReview(activity: ActivityMap, correct: boolean): ActivityMap {
-  const today = todayStr();
-  const day = activity[today] ?? { reviewed: 0, correct: 0 };
-  const updated: ActivityMap = {
-    ...activity,
-    [today]: { reviewed: day.reviewed + 1, correct: day.correct + (correct ? 1 : 0) },
-  };
+// La persistencia (localStorage o API) la decide el DeckStore; estas dos
+// transiciones son puras para poder compartirlas entre ambos modos.
+export function writeActivity(activity: ActivityMap): void {
   try {
-    localStorage.setItem(ACTIVITY_KEY, JSON.stringify(updated));
+    localStorage.setItem(ACTIVITY_KEY, JSON.stringify(activity));
   } catch (error) {
     console.error("Error saving activity to localStorage:", error);
   }
-  return updated;
 }
 
-// Reverso de logReview, para el deshacer de la sesión. Clampa a 0: si el log
+export function applyReview(activity: ActivityMap, correct: boolean): ActivityMap {
+  const today = todayStr();
+  const day = activity[today] ?? { reviewed: 0, correct: 0 };
+  return {
+    ...activity,
+    [today]: { reviewed: day.reviewed + 1, correct: day.correct + (correct ? 1 : 0) },
+  };
+}
+
+// Reverso de applyReview, para el deshacer de la sesión. Clampa a 0: si el log
 // original cayó ayer (medianoche a mitad de sesión), no dejamos negativos.
-export function unlogReview(activity: ActivityMap, correct: boolean): ActivityMap {
+export function applyUnreview(activity: ActivityMap, correct: boolean): ActivityMap {
   const today = todayStr();
   const day = activity[today];
   if (!day) return activity;
-  const updated: ActivityMap = {
+  return {
     ...activity,
     [today]: {
       reviewed: Math.max(0, day.reviewed - 1),
       correct: Math.max(0, day.correct - (correct ? 1 : 0)),
     },
   };
-  try {
-    localStorage.setItem(ACTIVITY_KEY, JSON.stringify(updated));
-  } catch (error) {
-    console.error("Error saving activity to localStorage:", error);
-  }
-  return updated;
 }
 
 // Días consecutivos con actividad, anclados en hoy — o en ayer si hoy aún no

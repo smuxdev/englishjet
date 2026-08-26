@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# BD SQLite local (npm run db:migrate con TURSO_DATABASE_URL=file:.data/dev.db)
+.data/
+
 # Modelo Piper grande (131 MB) supera límite 100 MB de GitHub sin LFS.
 # Para GitHub: se excluye y se descarga con `npm run download:piper` (ver README).
 # Para distributable ZIP sí se incluye (ver /tmp/englishjet-dist.zip)

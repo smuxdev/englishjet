@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import type { Word, FilterStatus } from "../types/vocabulary";
 import {
-  initializeWords,
-  saveProgress,
   promote,
   demote,
   masteredProgress,
@@ -11,9 +9,9 @@ import {
   MAX_BOX,
   type WordProgress,
 } from "../data/words";
-import { readActivity, logReview, unlogReview, computeStreak, type ActivityMap } from "../data/activity";
+import { applyReview, applyUnreview, computeStreak, type ActivityMap } from "../data/activity";
 import { PIPER_VOICE_ID } from "../services/piper";
-import { probeCsvEditable, saveCsvToServer } from "../services/csvStore";
+import type { DeckStore } from "../services/deckStore";
 import {
   VocabularyContext,
   SESSION_SIZES,
@@ -45,7 +43,10 @@ function withProgress(word: Word, p: WordProgress): Word {
   return { ...word, box: p.box, due: p.due, learned: p.box >= MAX_BOX };
 }
 
-export function VocabularyProvider({ children }: { children: ReactNode }) {
+// El store (local = CSV+localStorage, remote = API por usuario) llega por
+// props; App remonta este provider con key al cambiar de identidad, así que
+// aquí no hay lógica de recarga entre modos.
+export function VocabularyProvider({ store, children }: { store: DeckStore; children: ReactNode }) {
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -69,23 +70,28 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     () => localStorage.getItem("vocabulary_autoplay") === "1"
   );
   const [canEdit, setCanEdit] = useState(false);
-  const [activity, setActivity] = useState<ActivityMap>(readActivity);
+  const [activity, setActivity] = useState<ActivityMap>({});
+  const [mySentences, setMySentences] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
-    probeCsvEditable().then((ok) => {
+    store.probeCanEdit().then((ok) => {
       if (!cancelled) setCanEdit(ok);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [store]);
 
   useEffect(() => {
     let cancelled = false;
-    initializeWords()
-      .then((words) => {
-        if (!cancelled) setAllWords(words);
+    store
+      .load()
+      .then((data) => {
+        if (cancelled) return;
+        setAllWords(data.words);
+        setActivity(data.activity);
+        setMySentences(data.mySentences);
       })
       .catch((error) => {
         console.error("Error loading vocabulary:", error);
@@ -97,7 +103,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [store]);
 
   useEffect(() => {
     const loadVoices = () => setVoices(window.speechSynthesis.getVoices());
@@ -222,45 +228,48 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   );
 
   // Marcado manual desde el grid: dominada (caja 5) ↔ nueva (caja 0).
-  const toggleLearned = useCallback((id: string) => {
-    setAllWords((words) =>
-      words.map((w) =>
-        w.id === id ? withProgress(w, w.learned ? resetProgress() : masteredProgress()) : w
-      )
-    );
-  }, []);
+  const toggleLearned = useCallback(
+    (id: string) => {
+      const word = allWords.find((w) => w.id === id);
+      if (!word) return;
+      const p = word.learned ? resetProgress() : masteredProgress();
+      setAllWords((words) => words.map((w) => (w.id === id ? withProgress(w, p) : w)));
+      store.persistProgress(word, p);
+    },
+    [allWords, store]
+  );
 
   // Transición Leitner desde la sesión: acierto sube de caja, fallo → caja 1.
-  // El log de actividad se escribe aquí (cuerpo del handler, corre una vez),
-  // nunca dentro de los updaters, que StrictMode ejecuta por duplicado.
+  // El log de actividad y la sincronización se hacen aquí (cuerpo del handler,
+  // corre una vez), nunca dentro de los updaters, que StrictMode duplica.
   const reviewWord = useCallback(
     (id: string, correct: boolean) => {
-      setAllWords((words) =>
-        words.map((w) =>
-          w.id === id ? withProgress(w, correct ? promote(w.box) : demote()) : w
-        )
-      );
-      setActivity(logReview(activity, correct));
+      const word = allWords.find((w) => w.id === id);
+      if (!word) return;
+      const p = correct ? promote(word.box) : demote();
+      setAllWords((words) => words.map((w) => (w.id === id ? withProgress(w, p) : w)));
+      const nextActivity = applyReview(activity, correct);
+      setActivity(nextActivity);
+      store.persistProgress(word, p);
+      store.logActivity(nextActivity, { reviewed: 1, correct: correct ? 1 : 0 });
     },
-    [activity]
+    [allWords, activity, store]
   );
 
   // Deshacer de la sesión: restaura la caja/fecha previas de la palabra y
-  // descuenta el repaso del log de actividad (el efecto de persistencia
-  // re-escribe el progreso solo).
+  // descuenta el repaso del log de actividad.
   const undoReview = useCallback(
     (id: string, prev: { box: number; due: string }, wasCorrect: boolean) => {
+      const word = allWords.find((w) => w.id === id);
+      if (!word) return;
       setAllWords((words) => words.map((w) => (w.id === id ? withProgress(w, prev) : w)));
-      setActivity(unlogReview(activity, wasCorrect));
+      const nextActivity = applyUnreview(activity, wasCorrect);
+      setActivity(nextActivity);
+      store.persistProgress(word, prev);
+      store.logActivity(nextActivity, { reviewed: -1, correct: wasCorrect ? -1 : 0 });
     },
-    [activity]
+    [allWords, activity, store]
   );
-
-  // CRUD con write-through al CSV: primero se escribe el fichero, y solo si
-  // el servidor confirma se actualiza la memoria (sin estados intermedios que
-  // revertir). Al cambiar el término inglés, el id pasa a ser el nuevo front y
-  // el efecto de persistencia re-escribe el progreso bajo la nueva clave.
-  const CSV_WRITE_ERROR = "No se pudo escribir el CSV (¿la app no corre bajo npm run dev?)";
 
   type ValidatedFields =
     | { error: string }
@@ -286,73 +295,93 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     [allWords]
   );
 
+  // CRUD write-through: primero confirma el store (CSV o API) y solo entonces
+  // se actualiza la memoria (sin estados intermedios que revertir).
   const editWord = useCallback(
     async (id: string, fields: WordEdit): Promise<string | null> => {
       const v = validateFields(fields, id);
       if (v.error !== undefined) return v.error;
-      const updated = allWords.map((w) =>
-        w.id === id
-          ? {
-              ...w,
-              id: v.en,
-              englishTerm: v.en,
-              spanishTranslation: v.es,
-              exampleSentence: v.example,
-              pronunciation: v.pronunciation,
-              // el hint es siempre examples[0]; se conservan los extras del sidecar
-              examples: [v.example, ...w.examples.filter((e) => e !== w.exampleSentence)].filter(Boolean),
-            }
-          : w
+      const word = allWords.find((w) => w.id === id);
+      if (!word) return "Palabra no encontrada";
+      const result = await store.editWord(
+        word,
+        { en: v.en, es: v.es, example: v.example, pronunciation: v.pronunciation },
+        allWords
       );
-      const ok = await saveCsvToServer(updated);
-      if (!ok) return CSV_WRITE_ERROR;
-      setAllWords(updated);
+      if ("error" in result) return result.error;
+      setAllWords(allWords.map((w) => (w.id === id ? result.word : w)));
+      // En local el id es el término: si cambió, la frase propia migra de clave.
+      const newId = result.word.id;
+      if (newId !== id && mySentences[id] !== undefined) {
+        const sentence = mySentences[id];
+        setMySentences((m) => {
+          const { [id]: _moved, ...rest } = m;
+          return { ...rest, [newId]: sentence };
+        });
+        store.saveMySentence(newId, sentence);
+      }
       return null;
     },
-    [allWords, validateFields]
+    [allWords, mySentences, store, validateFields]
   );
 
   const addWord = useCallback(
     async (fields: WordEdit): Promise<string | null> => {
       const v = validateFields(fields, null);
       if (v.error !== undefined) return v.error;
-      const word: Word = {
-        id: v.en,
-        englishTerm: v.en,
-        spanishTranslation: v.es,
-        exampleSentence: v.example,
-        pronunciation: v.pronunciation,
-        dateAdded: new Date().toISOString(),
-        learned: false,
-        box: 0,
-        due: todayStr(),
-        examples: v.example ? [v.example] : [],
-      };
-      const updated = [word, ...allWords];
-      const ok = await saveCsvToServer(updated);
-      if (!ok) return CSV_WRITE_ERROR;
-      setAllWords(updated);
+      const result = await store.addWord(
+        { en: v.en, es: v.es, example: v.example, pronunciation: v.pronunciation },
+        allWords
+      );
+      if ("error" in result) return result.error;
+      setAllWords([result.word, ...allWords]);
       return null;
     },
-    [allWords, validateFields]
+    [allWords, store, validateFields]
   );
 
   const deleteWord = useCallback(
     async (id: string): Promise<string | null> => {
-      const updated = allWords.filter((w) => w.id !== id);
-      if (updated.length === allWords.length) return "Palabra no encontrada";
-      const ok = await saveCsvToServer(updated);
-      if (!ok) return CSV_WRITE_ERROR;
-      setAllWords(updated); // su progreso desaparece al re-persistir el mapa
+      if (!allWords.some((w) => w.id === id)) return "Palabra no encontrada";
+      const error = await store.deleteWord(id, allWords);
+      if (error) return error;
+      setAllWords(allWords.filter((w) => w.id !== id)); // su progreso se va con la tarjeta
       return null;
     },
-    [allWords]
+    [allWords, store]
   );
 
-  // Persistir progreso fuera del updater (StrictMode ejecuta los updaters dos veces).
+  const setMySentence = useCallback(
+    (id: string, sentence: string) => {
+      setMySentences((m) => ({ ...m, [id]: sentence }));
+      store.saveMySentence(id, sentence);
+    },
+    [store]
+  );
+
+  const importSampleDeck = useCallback(async (): Promise<string | null> => {
+    const error = await store.importSampleDeck();
+    if (error) return error;
+    setLoading(true);
+    try {
+      const data = await store.load();
+      setAllWords(data.words);
+      setActivity(data.activity);
+      setMySentences(data.mySentences);
+    } catch (loadError) {
+      console.error("Error reloading after import:", loadError);
+      return "Importado, pero no se pudo recargar el mazo — recarga la página";
+    } finally {
+      setLoading(false);
+    }
+    return null;
+  }, [store]);
+
+  // Persistir progreso fuera del updater (StrictMode ejecuta los updaters dos
+  // veces). En remoto es no-op: cada transición ya hizo su PATCH.
   useEffect(() => {
-    if (!loading && !loadError) saveProgress(allWords);
-  }, [allWords, loading, loadError]);
+    if (!loading && !loadError) store.persistAllProgress(allWords);
+  }, [allWords, loading, loadError, store]);
 
   return (
     <VocabularyContext.Provider
@@ -373,6 +402,10 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
         editWord,
         addWord,
         deleteWord,
+        mySentences,
+        setMySentence,
+        canImport: store.mode === "remote",
+        importSampleDeck,
         goToPage,
         sessionSize,
         setSessionSize,

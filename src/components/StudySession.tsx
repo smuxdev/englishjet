@@ -7,7 +7,7 @@ import {
 } from "../hooks/vocabularyContext";
 import { checkAnswer, type Verdict } from "../services/answer";
 import { findOccurrence, type ClozeMatch } from "../services/cloze";
-import { readMySentences, saveMySentence, validateMySentence } from "../data/mySentences";
+import { validateMySentence } from "../data/mySentences";
 import { speakPiper, speakNative, isPiperVoice } from "../services/piper";
 import { StudyCard } from "./StudyCard";
 
@@ -46,7 +46,8 @@ function bestVerdict(a: Verdict, b: Verdict): Verdict {
 // Efecto de generación: en el resumen, cada fallada invita a escribir tu
 // propia frase con la palabra; entra en el pool de rotación de futuros repasos.
 const MySentenceRow = ({ word }: { word: Word }) => {
-  const [value, setValue] = useState(() => readMySentences()[word.id] ?? "");
+  const { mySentences, setMySentence } = useVocabularyStorage();
+  const [value, setValue] = useState(() => mySentences[word.id] ?? "");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +59,7 @@ const MySentenceRow = ({ word }: { word: Word }) => {
       setSaved(false);
       return;
     }
-    saveMySentence(word.id, value);
+    setMySentence(word.id, value.trim());
     setError(null);
     setSaved(true);
   };
@@ -137,7 +138,8 @@ function buildSession(
   words: Word[],
   direction: StudyDirection,
   mode: StudyMode,
-  size: number
+  size: number,
+  mine: Record<string, string>
 ): SessionState {
   // Prioridad a las revisiones vencidas (caja > 0) sobre las nuevas, para que
   // el backlog de repaso no se ahogue entre palabras nuevas; el orden final
@@ -145,7 +147,6 @@ function buildSession(
   const reviews = shuffle(words.filter((w) => w.box > 0));
   const fresh = shuffle(words.filter((w) => w.box === 0));
   const deck = shuffle([...reviews, ...fresh].slice(0, size));
-  const mine = readMySentences();
   return {
     queue: deck.map((word) => makeCard(word, mode, mine[word.id])),
     direction,
@@ -171,9 +172,10 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
     setAutoplay,
     selectedVoice,
     voices,
+    mySentences,
   } = useVocabularyStorage();
   const [session, setSession] = useState<SessionState>(() =>
-    buildSession(dueWords, studyDirection, studyMode, sessionSize)
+    buildSession(dueWords, studyDirection, studyMode, sessionSize, mySentences)
   );
   const [draft, setDraft] = useState("");
 
@@ -375,7 +377,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
           <div className="relative flex flex-col sm:flex-row justify-center gap-2">
             {session.failedWords.length > 0 && (
               <button
-                onClick={() => setSession((s) => buildSession(s.failedWords, s.direction, s.mode, sessionSize))}
+                onClick={() => setSession((s) => buildSession(s.failedWords, s.direction, s.mode, sessionSize, mySentences))}
                 className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-dark"
               >
                 Repetir falladas ({session.failedWords.length})
@@ -383,7 +385,7 @@ export const StudySession = ({ onExit }: { onExit: () => void }) => {
             )}
             {dueWords.length > 0 && (
               <button
-                onClick={() => setSession(buildSession(dueWords, studyDirection, studyMode, sessionSize))}
+                onClick={() => setSession(buildSession(dueWords, studyDirection, studyMode, sessionSize, mySentences))}
                 className="rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/20"
               >
                 Otra ronda ({Math.min(dueWords.length, sessionSize)})

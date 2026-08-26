@@ -97,20 +97,23 @@ export const HelpContent = () => (
       </p>
     </Section>
 
-    <Section emoji="✏️" title="Editar el vocabulario (modo desarrollo)">
+    <Section emoji="✏️" title="Editar el vocabulario">
       <p>
-        Con la app lanzada con <code className="text-xs bg-slate-100 px-1 rounded">npm run dev</code>,
-        cada tarjeta tiene un lápiz para editar (inglés, español, ejemplo, IPA con sugerencia automática)
-        o eliminar, y el botón <strong>«+ Añadir palabra»</strong> da de alta nuevas. Los cambios se
-        guardan en el CSV del proyecto.
+        Con <strong>sesión iniciada</strong> (botón «👤 Entrar»), cada tarjeta tiene un lápiz para editar
+        (inglés, español, ejemplo, IPA con sugerencia automática) o eliminar, y el botón
+        <strong> «+ Añadir palabra»</strong> da de alta nuevas en tu mazo personal. En modo desarrollo
+        (<code className="text-xs bg-slate-100 px-1 rounded">npm run dev</code>) la edición sin cuenta
+        escribe en el CSV del proyecto.
       </p>
     </Section>
 
     <Section emoji="💾" title="Dónde se guarda tu progreso">
       <p>
-        Todo tu progreso, rachas y preferencias viven en <strong>este navegador</strong> (localStorage):
-        sobreviven a recargas, pero no se comparten entre dispositivos ni sobreviven a borrar los datos
-        de navegación. La lista de palabras vive en el CSV del proyecto.
+        <strong>Con cuenta</strong>, tu mazo, progreso, rachas y frases propias se guardan en el servidor
+        y te siguen entre dispositivos (las preferencias de la interfaz siguen siendo por navegador). Al
+        importar el mazo de ejemplo, el progreso que ya tuvieras en este navegador se migra a tu cuenta.
+        <strong> Sin cuenta</strong>, todo vive en este navegador (localStorage): sobrevive a recargas,
+        pero no se comparte entre dispositivos ni sobrevive a borrar los datos de navegación.
       </p>
     </Section>
   </div>

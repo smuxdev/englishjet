@@ -46,10 +46,15 @@ export interface VocabularyContextType {
   reviewWord: (id: string, correct: boolean) => void;
   // Deshacer de la sesión: restaura la caja/fecha previas y descuenta el log
   undoReview: (id: string, prev: { box: number; due: string }, wasCorrect: boolean) => void;
-  canEdit: boolean; // hay endpoint de escritura del CSV (solo `npm run dev`)
+  canEdit: boolean; // hay vía de escritura de contenido (dev CSV o sesión remota)
   editWord: (id: string, fields: WordEdit) => Promise<string | null>; // null = ok, string = error
   addWord: (fields: WordEdit) => Promise<string | null>;
   deleteWord: (id: string) => Promise<string | null>;
+  // Frase propia del aprendiz por id de palabra (efecto de generación)
+  mySentences: Record<string, string>;
+  setMySentence: (id: string, sentence: string) => void;
+  canImport: boolean; // modo remoto: se puede importar el mazo de ejemplo
+  importSampleDeck: () => Promise<string | null>; // null = ok
 
   goToPage: (page: number) => void;
   sessionSize: number;

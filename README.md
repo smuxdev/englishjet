@@ -55,10 +55,16 @@ python3 -m http.server --directory dist 8000
 Abre `http://localhost:3000` (serve) o `http://localhost:8000` (python).
 
 ## Despliegue en Vercel
-Importa el repo en [vercel.com/new](https://vercel.com/new) (framework Vite, autodetectado: `npm run build` → `dist/`). No hay nada que configurar; `vercel.json` solo añade headers de caché.
+Importa el repo en [vercel.com/new](https://vercel.com/new) (framework Vite, autodetectado: `npm run build` → `dist/`). Las serverless functions de `api/` se despliegan automáticamente.
 
 - El modelo Piper (131 MB) no está en el repo ni cabe en Vercel (límite 100 MB/archivo): en producción `src/services/piper.ts` lo descarga de HuggingFace en runtime y lo persiste con Cache API, una sola vez por navegador.
-- La edición de palabras sigue siendo solo-dev (no hay servidor que escriba el CSV): tras editar en local, commit del CSV y push para publicar.
+- **Backend multi-usuario** (cuentas + mazo por usuario en [Turso](https://turso.tech)): crea la BD (`turso db create englishjet`), aplica el esquema (`TURSO_DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... node scripts/migrate.mjs`) y define en Vercel las env vars `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` y `REGISTRATION_CODE` (código de invitación para el registro). Sin estas variables la app funciona igualmente en modo anónimo (CSV + localStorage).
+- Sin cuenta, la edición de palabras sigue siendo solo-dev (no hay servidor que escriba el CSV): tras editar en local, commit del CSV y push para publicar.
+
+## Backend y cuentas
+- `api/` — Vercel Functions (firma web `Request → Response`): `auth/[action]` (register/login/logout/me; sesiones opacas en cookie httpOnly, scrypt, rate-limit de login), `cards` + `cards/[id]` + `cards/import` (CRUD del mazo por usuario), `activity` (log de estudio) y `suggest-examples` (proxy Tatoeba autenticado).
+- **Modo dual**: sin sesión, la app se comporta como siempre (CSV estático + localStorage); con sesión, mazo propio en la BD (empieza vacío, con botón para importar el mazo de ejemplo — migra el progreso anónimo del navegador). La abstracción es `src/services/deckStore.ts` con dos implementaciones (`localDeckStore`, `remoteDeckStore`).
+- **Desarrollo local**: `cp .env.example .env.local && npm run db:migrate` crea una SQLite en `.data/dev.db`; `npm run dev` monta los mismos handlers de `api/` como middleware (no requiere `vercel dev`).
 
 ## Notas
 - **Modelo Piper** (`public/piper/en_US-libritts-high.onnx` 131 MB) está en `.gitignore` para no superar el límite de 100 MB de GitHub. Sin `git-lfs`, clonar no lo trae; ejecuta `npm run download:piper` en el otro PC. Si usas `git lfs`, haz `git lfs track "public/piper/*.onnx"` antes del push.

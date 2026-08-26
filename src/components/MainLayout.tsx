@@ -29,9 +29,21 @@ export const MainLayout = () => {
     setSessionSize,
     canEdit,
     addWord,
+    canImport,
+    importSampleDeck,
   } = useVocabularyStorage();
   const [studying, setStudying] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const handleImport = async () => {
+    setImporting(true);
+    setImportError(null);
+    const error = await importSampleDeck();
+    setImporting(false);
+    if (error) setImportError(error);
+  };
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -136,6 +148,26 @@ export const MainLayout = () => {
           </Modal>
         )}
 
+        {/* ===== MAZO VACÍO (modo con cuenta): importar el de ejemplo ===== */}
+        {canImport && state.totalCount === 0 && !loading && !loadError && (
+          <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 sm:p-10 text-center">
+            <span className="text-3xl" aria-hidden="true">🧳</span>
+            <h2 className="mt-2 font-display text-lg font-bold text-ink">Tu mazo está vacío</h2>
+            <p className="mt-1 text-sm text-slate-500 max-w-md mx-auto">
+              Empieza con el mazo de ejemplo (638 palabras con ejemplos e IPA) — si ya estudiaste en este
+              navegador sin cuenta, tu progreso se migra con él — o crea tus propias palabras con «+ Añadir palabra».
+            </p>
+            <button
+              onClick={() => void handleImport()}
+              disabled={importing}
+              className="mt-4 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-dark disabled:opacity-50"
+            >
+              {importing ? "Importando..." : "Importar mazo de ejemplo →"}
+            </button>
+            {importError && <p className="mt-3 text-sm text-red-600">{importError}</p>}
+          </section>
+        )}
+
         {/* ===== TARJETAS DE PALABRAS ===== */}
         <section>
           {loading ? (
@@ -147,7 +179,7 @@ export const MainLayout = () => {
               <p className="text-red-600 text-sm font-medium mb-1">No se pudo cargar el vocabulario</p>
               <p className="text-slate-500 text-sm">Comprueba tu conexión y recarga la página</p>
             </div>
-          ) : words.length === 0 ? (
+          ) : canImport && state.totalCount === 0 ? null : words.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
               <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
